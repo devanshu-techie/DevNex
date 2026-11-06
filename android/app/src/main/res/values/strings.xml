@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">DevNex</string>
+    <string name="tagline">Every task. Every team. One nexus.</string>
+    <string name="powered_by">Powered by Devanshu</string>
+    <string name="channel_tasks">Tasks &amp; approvals</string>
+    <string name="channel_messages">Messages &amp; mentions</string>
+</resources>

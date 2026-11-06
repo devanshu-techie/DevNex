@@ -1,0 +1,14 @@
+<resources>
+    <style name="Theme.DevNex" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/devnex_void</item>
+    </style>
+
+    <!-- System splash (Android 12+) hands off instantly to the animated Compose splash -->
+    <style name="Theme.DevNex.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/devnex_void</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_devnex_mark</item>
+        <item name="postSplashScreenTheme">@style/Theme.DevNex</item>
+    </style>
+</resources>

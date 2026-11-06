@@ -1,0 +1,45 @@
+== migration applied ==
+ok  - invitation bound to its email (invitation was sent to a different email).
+ok  - three employees joined Alpha via invitations
+ok  - invitation cannot be reused
+ok  - Beta owner sees zero Alpha tasks
+ok  - Beta owner sees zero Alpha members
+ok  - Beta owner sees zero Alpha profiles
+ok  - Beta owner sees zero Alpha channels
+ok  - Beta owner cannot insert into Alpha (new row violates row-level security policy for table "tasks").
+ok  - Beta owner cannot claim an Alpha task
+ok  - Beta dashboard works for Beta
+ok  - platform owner sees company list
+ok  - platform owner cannot read company tasks by default
+ok  - platform overview shows counts only
+ok  - member cannot change own role (permission denied for table company_memberships).
+ok  - member cannot move self to another department
+ok  - direct status update is blocked (permission denied for table tasks).
+ok  - Reporting member cannot see Video dept task
+ok  - member sees open-pool task in own dept
+ok  - second claim fails after first succeeds
+ok  - stale version rejected (VERSION_CONFLICT).
+ok  - member cannot approve (forbidden).
+ok  - team lead approves stage 1
+ok  - team lead cannot approve the head stage (this stage needs a head or higher).
+ok  - owner approves final stage
+ok  - task is approved
+ok  - activity history recorded
+ok  - audit trail recorded
+ok  - self-approval blocked (you cannot approve your own work).
+ok  - Ravi notified of approval
+ok  - Beta owner gets no Alpha notifications
+ok  - retry with same client UUID cannot duplicate a message
+ok  - members cannot post announcements
+ok  - Beta owner cannot read Alpha messages
+ok  - Coverage Desk disabled for the agency
+ok  - newsroom can register a coverage event
+ok  - platform owner reads Alpha tasks only after a support grant
+ok  - support grant does not leak Beta
+ok  - suspended company loses data access
+ok  - switcher shows the company as suspended
+ALL TESTS PASSED
+== concurrent claim race (two real sessions) ==
+Ravi: CLAIM_FAILED   Meera: CLAIM_SUCCESS
+ok  - exactly one winner, one claim row
+== ALL CHECKS PASSED ==
