@@ -85,6 +85,23 @@ jobs:
             screens/
             crash_log.txt
             android/app/build/reports/androidTests/
+      - name: Print journey results
+        if: always()
+        run: |
+          for f in android/app/build/outputs/androidTest-results/connected/debug/*.xml; do
+            [ -f "$f" ] && python3 -c "import re,sys,html;t=open(sys.argv[1]).read();m=re.search(r'<failure[^>]*>(.*?)</failure>',t,re.S);print(html.unescape(m.group(1))[:6000] if m else 'JOURNEY: all steps passed')" "$f"
+          done
+          echo "--- crashes ---"; cat crash_log.txt 2>/dev/null | head -80 || true
+      - name: Publish screenshots to the ci-screens branch
+        if: always()
+        run: |
+          mkdir -p /tmp/s
+          cp -r screens/. /tmp/s/ 2>/dev/null || true
+          cp android/app/build/outputs/androidTest-results/connected/debug/*.xml /tmp/s/ 2>/dev/null || true
+          cp crash_log.txt /tmp/s/ 2>/dev/null || true
+          cd /tmp/s && git init -q && git checkout -q -b ci-screens && git add -A
+          git -c user.name=devnex-ci -c user.email=ci@devnex.app commit -qm "journey screenshots for ${{ github.sha }}"
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" ci-screens
       - name: Fail if the journey failed
         run: test ! -f ui_failed.txt
 
