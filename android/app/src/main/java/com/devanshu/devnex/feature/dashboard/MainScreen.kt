@@ -152,7 +152,7 @@ fun MainScreen(nav: MainNav, vm: MainViewModel = hiltViewModel()) {
     Scaffold(
         containerColor = Color.Transparent,
         bottomBar = {
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = .92f), tonalElevation = 0.dp) {
+            NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
                 Tab.entries.forEach { t ->
                     val label = if (t == Tab.DESK && !coverageOn) "Projects" else t.label
                     val icon = if (t == Tab.DESK && !coverageOn) Icons.Rounded.AccountTree else t.icon
@@ -164,8 +164,8 @@ fun MainScreen(nav: MainNav, vm: MainViewModel = hiltViewModel()) {
                             else Icon(icon, label)
                         },
                         label = { Text(label, maxLines = 1) },
-                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Nx.Cyan, selectedTextColor = Nx.Cyan,
-                            indicatorColor = Nx.Violet.copy(alpha = .18f)),
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = Nx.Violet, selectedTextColor = Nx.Violet,
+                            indicatorColor = Nx.Violet.copy(alpha = .12f), unselectedIconColor = Nx.Mute, unselectedTextColor = Nx.Mute),
                     )
                 }
             }
@@ -247,7 +247,7 @@ fun HomeTab(vm: MainViewModel, nav: MainNav) {
                 Text("$greet,", style = MaterialTheme.typography.titleMedium, color = LocalNx.current.mute)
                 Text(user?.fullName?.substringBefore(' ') ?: "", style = MaterialTheme.typography.displaySmall)
                 Spacer(Modifier.height(4.dp))
-                Text(if (stats?.scope == "company") "Company pulse · live" else "Your pulse · live", style = MaterialTheme.typography.labelSmall, color = Nx.Cyan)
+                Text(if (stats?.scope == "company") "Company overview" else "Your overview", style = MaterialTheme.typography.labelSmall, color = Nx.Cyan)
             }
         }
         item {
@@ -290,7 +290,7 @@ fun HomeTab(vm: MainViewModel, nav: MainNav) {
             }
         }
         item {
-            Text("POWERED BY DEVANSHU", style = MaterialTheme.typography.labelSmall, color = LocalNx.current.mute.copy(alpha = .5f),
+            Text("Powered by Devanshu", style = MaterialTheme.typography.labelSmall, color = LocalNx.current.mute.copy(alpha = .5f),
                 modifier = Modifier.fillMaxWidth().padding(top = 24.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         }
     }
@@ -303,7 +303,7 @@ private fun PulsePanel(s: DashboardStats) {
     val total = s.doneWeek + s.active
     Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         GlassCard(Modifier.weight(1f).height(186.dp), accent = Nx.Violet) {
-            Text("WEEK FLOW", style = MaterialTheme.typography.labelSmall, color = LocalNx.current.mute)
+            Text("This week", style = MaterialTheme.typography.labelSmall, color = LocalNx.current.mute)
             Spacer(Modifier.height(8.dp))
             PulseRing(if (total == 0) 0f else s.doneWeek.toFloat() / total, Modifier.fillMaxWidth().weight(1f),
                 sub = "${s.doneWeek} done")

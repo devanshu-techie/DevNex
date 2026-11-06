@@ -38,7 +38,7 @@ import javax.inject.Singleton
 @Singleton
 class AppPrefs @Inject constructor(@ApplicationContext context: Context) {
     private val prefs = context.getSharedPreferences("devnex_ui", Context.MODE_PRIVATE)
-    private val _theme = MutableStateFlow(runCatching { ThemeMode.valueOf(prefs.getString("theme", "DARK")!!) }.getOrDefault(ThemeMode.DARK))
+    private val _theme = MutableStateFlow(runCatching { ThemeMode.valueOf(prefs.getString("theme", "LIGHT")!!) }.getOrDefault(ThemeMode.LIGHT))
     val theme: StateFlow<ThemeMode> = _theme
     fun setTheme(m: ThemeMode) { prefs.edit().putString("theme", m.name).apply(); _theme.value = m }
 }

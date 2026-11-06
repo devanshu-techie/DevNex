@@ -88,7 +88,7 @@ fun WorkspaceSwitcherScreen(
                     }
                 }
                 Spacer(Modifier.height(8.dp))
-                Text("Hi ${user?.fullName?.substringBefore(' ') ?: ""} 👋", style = MaterialTheme.typography.headlineMedium)
+                Text("Welcome, ${user?.fullName?.substringBefore(' ') ?: ""}", style = MaterialTheme.typography.headlineMedium)
                 Text(if (list.isEmpty()) "You're not in any company yet." else "Choose a workspace", color = LocalNx.current.mute)
                 Spacer(Modifier.height(12.dp))
                 ErrorBanner(vm.error) { vm.error = null }

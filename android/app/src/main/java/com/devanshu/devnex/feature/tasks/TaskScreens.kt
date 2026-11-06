@@ -156,7 +156,7 @@ fun WorkTab(vm: MainViewModel, nav: MainNav) {
         }
         if (canCreate) {
             ExtendedFloatingActionButton(
-                onClick = { nav.createTask(null) }, containerColor = Nx.Violet, contentColor = Color.White,
+                onClick = { nav.createTask(null) }, containerColor = Nx.Violet, contentColor = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
                 icon = { Icon(Icons.Rounded.Add, null) },
                 text = { Text(if (w?.can(Perm.TASK_CREATE) == true) "New task" else "Request task") },
@@ -242,8 +242,8 @@ class TaskDetailViewModel @Inject constructor(
 
     fun claim() = act {
         message = when (repo.claim(taskId)) {
-            ClaimResult.SUCCESS -> { celebrate++; "It's yours. Task claimed ✓" }
-            ClaimResult.ALREADY_CLAIMED -> "Too late — someone else claimed this first."
+            ClaimResult.SUCCESS -> { celebrate++; "Task claimed. It is now assigned to you." }
+            ClaimResult.ALREADY_CLAIMED -> "Someone else claimed this task first."
             ClaimResult.NOT_ELIGIBLE -> "This task is for another department or skill group."
             ClaimResult.FORBIDDEN -> "You can't claim tasks in this workspace."
         }
@@ -253,7 +253,7 @@ class TaskDetailViewModel @Inject constructor(
     fun decide(approve: Boolean, note: String?) = act {
         val r = repo.decide(taskId, approve, note)
         if (r == "APPROVED") celebrate++
-        message = when (r) { "APPROVED" -> "Approved — final stage ✓"; "STAGE_APPROVED" -> "Stage approved, sent to next reviewer"; else -> "Sent back with your notes" }
+        message = when (r) { "APPROVED" -> "Approved. This was the final stage."; "STAGE_APPROVED" -> "Stage approved, sent to next reviewer"; else -> "Sent back with your notes" }
     }
     fun assign(t: Task, userId: String) = act("Assigned to ${name(userId)}") { repo.assign(t, userId) }
     fun toggle(item: ChecklistItem) = viewModelScope.launch { runCatching { repo.toggleChecklist(item) } }
@@ -434,11 +434,11 @@ private fun ActionBar(t: Task, w: Workspace, vm: TaskDetailViewModel, onAsk: (St
     val primary: Pair<String, () -> Unit>? = when {
         t.status == TaskStatus.OPEN && t.isOpenPool && w.can(Perm.TASK_CLAIM) -> "Claim task" to { vm.claim() }
         canReview -> "Approve" to { vm.decide(true, null) }
-        mine && t.status == TaskStatus.ASSIGNED -> "Start working" to { vm.status(t, TaskStatus.IN_PROGRESS, msg = "Started — good luck!") }
+        mine && t.status == TaskStatus.ASSIGNED -> "Start working" to { vm.status(t, TaskStatus.IN_PROGRESS, msg = "Task started") }
         mine && t.status == TaskStatus.IN_PROGRESS -> "Submit for review" to { vm.status(t, TaskStatus.SUBMITTED, msg = "Submitted for review") }
         mine && t.status == TaskStatus.BLOCKED -> "Resume" to { vm.status(t, TaskStatus.IN_PROGRESS, msg = "Back in progress") }
         mine && t.status == TaskStatus.CHANGES_REQUESTED -> "Resubmit" to { vm.status(t, TaskStatus.SUBMITTED, msg = "Resubmitted") }
-        manager && t.status == TaskStatus.APPROVED -> "Mark published" to { vm.status(t, TaskStatus.PUBLISHED, msg = "Published 🚀") }
+        manager && t.status == TaskStatus.APPROVED -> "Mark published" to { vm.status(t, TaskStatus.PUBLISHED, msg = "Marked as published") }
         manager && t.status in setOf(TaskStatus.INBOX, TaskStatus.EVALUATION) -> "Open to pool" to { vm.status(t, TaskStatus.OPEN, msg = "Now in the Open pool") }
         else -> null
     }
@@ -506,7 +506,7 @@ private fun CommentBox(onSend: (String) -> Unit) {
         Spacer(Modifier.width(8.dp))
         FilledIconButton({ if (text.isNotBlank()) { onSend(text.trim()); text = "" } },
             colors = IconButtonDefaults.filledIconButtonColors(containerColor = Nx.Violet)) {
-            Icon(Icons.AutoMirrored.Rounded.Send, "Send", tint = Color.White)
+            Icon(Icons.AutoMirrored.Rounded.Send, "Send", tint = MaterialTheme.colorScheme.onPrimary)
         }
     }
 }

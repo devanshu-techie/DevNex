@@ -122,7 +122,7 @@ fun ConversationScreen(onBack: () -> Unit, vm: ConversationViewModel = hiltViewM
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {
-            TopAppBar(title = { Column { Text("# ${vm.channelName}"); Text("live", style = MaterialTheme.typography.labelSmall, color = Nx.Lime) } },
+            TopAppBar(title = { Column { Text("# ${vm.channelName}"); Text("Live updates on", style = MaterialTheme.typography.labelSmall, color = Nx.Lime) } },
                 navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent))
         },
@@ -136,7 +136,7 @@ fun ConversationScreen(onBack: () -> Unit, vm: ConversationViewModel = hiltViewM
                     Spacer(Modifier.width(8.dp))
                     FilledIconButton({ vm.send(text); text = "" }, enabled = text.isNotBlank(),
                         colors = IconButtonDefaults.filledIconButtonColors(containerColor = Nx.Violet)) {
-                        Icon(Icons.AutoMirrored.Rounded.Send, "Send", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Rounded.Send, "Send", tint = MaterialTheme.colorScheme.onPrimary)
                     }
                 }
             }
@@ -151,17 +151,17 @@ fun ConversationScreen(onBack: () -> Unit, vm: ConversationViewModel = hiltViewM
                         if (!mine) { Avatar(m.senderName, 28.dp); Spacer(Modifier.width(8.dp)) }
                         Column(
                             Modifier.widthIn(max = 290.dp).clip(RoundedCornerShape(18.dp, 18.dp, if (mine) 4.dp else 18.dp, if (mine) 18.dp else 4.dp))
-                                .background(if (mine) Nx.Signature else androidx.compose.ui.graphics.SolidColor(LocalNx.current.glass))
+                                .background(if (mine) Nx.Violet else MaterialTheme.colorScheme.surface)
                                 .padding(horizontal = 14.dp, vertical = 9.dp),
                         ) {
                             if (!mine) Text(m.senderName, style = MaterialTheme.typography.labelMedium, color = Nx.Cyan)
-                            Text(m.body, color = if (mine) Color.White else MaterialTheme.colorScheme.onBackground)
+                            Text(m.body, color = if (mine) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onBackground)
                             Row(Modifier.align(Alignment.End), verticalAlignment = Alignment.CenterVertically) {
                                 Text(fmt.format(m.at), style = MaterialTheme.typography.labelSmall,
-                                    color = if (mine) Color.White.copy(alpha = .7f) else LocalNx.current.mute)
+                                    color = if (mine) MaterialTheme.colorScheme.onPrimary.copy(alpha = .75f) else LocalNx.current.mute)
                                 if (mine) { Spacer(Modifier.width(4.dp))
                                     Icon(if (m.pending) Icons.Rounded.Schedule else Icons.Rounded.DoneAll, if (m.pending) "Sending" else "Sent",
-                                        Modifier.size(12.dp), tint = Color.White.copy(alpha = .7f)) }
+                                        Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onPrimary.copy(alpha = .75f)) }
                             }
                         }
                     }

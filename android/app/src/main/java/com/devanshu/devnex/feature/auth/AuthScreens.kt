@@ -123,7 +123,7 @@ fun LoginScreen(onAuthed: (AfterAuth) -> Unit, onRegister: () -> Unit, vm: AuthV
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Rounded.Info, null, tint = Nx.Cyan, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("DEMO MODE", style = MaterialTheme.typography.labelSmall, color = Nx.Cyan)
+                        Text("Demo mode", style = MaterialTheme.typography.labelSmall, color = Nx.Cyan)
                     }
                     Spacer(Modifier.height(6.dp))
                     Text("Tap a role to try it. Password: devnex123", style = MaterialTheme.typography.bodySmall, color = LocalNx.current.mute)
@@ -153,7 +153,7 @@ fun LoginScreen(onAuthed: (AfterAuth) -> Unit, onRegister: () -> Unit, vm: AuthV
                 }
             }
             Spacer(Modifier.height(24.dp))
-            Text("POWERED BY DEVANSHU", style = MaterialTheme.typography.labelSmall, color = LocalNx.current.mute,
+            Text("Powered by Devanshu", style = MaterialTheme.typography.labelSmall, color = LocalNx.current.mute,
                 modifier = Modifier.align(Alignment.CenterHorizontally))
         }
     }
@@ -162,11 +162,11 @@ fun LoginScreen(onAuthed: (AfterAuth) -> Unit, onRegister: () -> Unit, vm: AuthV
 @Composable
 fun BrandMark() {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Nx.Signature), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Nx.Brand), contentAlignment = Alignment.Center) {
             Text("N", color = Color.White, fontWeight = FontWeight.Black, fontSize = 24.sp)
         }
         Spacer(Modifier.width(12.dp))
-        Text("DEVNEX", style = TextStyle(brush = Nx.Signature, fontWeight = FontWeight.Black, fontSize = 26.sp, letterSpacing = 4.sp))
+        Text("DevNex", style = TextStyle(color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, fontSize = 24.sp))
     }
 }
 
@@ -220,8 +220,8 @@ fun MfaScreen(onVerified: (AfterAuth) -> Unit, onBack: () -> Unit, vm: AuthViewM
         Column(Modifier.fillMaxSize().systemBarsPadding().imePadding().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Row(Modifier.fillMaxWidth()) { IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } }
             Spacer(Modifier.height(32.dp))
-            Box(Modifier.size(84.dp).clip(RoundedCornerShape(26.dp)).background(Nx.Signature), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.Security, null, tint = Color.White, modifier = Modifier.size(42.dp))
+            Box(Modifier.size(84.dp).clip(RoundedCornerShape(26.dp)).background(Nx.Violet), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.Security, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(42.dp))
             }
             Spacer(Modifier.height(24.dp))
             Text("Two-step verification", style = MaterialTheme.typography.headlineSmall)

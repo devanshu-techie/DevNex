@@ -183,7 +183,7 @@ class DemoRemoteDataSource : RemoteDataSource {
         val modules = mutableSetOf(Modules.IDEAS, Modules.OPS_LOG)
         if (industry == Industry.NEWSROOM) modules += Modules.COVERAGE
         if (industry == Industry.NEWSROOM || industry == Industry.AGENCY) modules += Modules.PUBLISHING
-        val palette = listOf(0xFF7C5CFF, 0xFF22D3EE, 0xFFF472B6, 0xFFA3E635, 0xFFFBBF24)
+        val palette = listOf(0xFF1D4ED8, 0xFF0F766E, 0xFF7C3AED, 0xFFB45309, 0xFFBE123C)
         companies += Co(cid, name.trim(), s, industry, "active", palette[companies.size % palette.size], modules, now())
         val depts = when (industry) {
             Industry.NEWSROOM -> listOf("Reporting", "Editorial", "Video", "Creative", "Social Media", "Website")
@@ -349,7 +349,7 @@ class DemoRemoteDataSource : RemoteDataSource {
         val n = bump(t) { if (last) it.copy(status = TaskStatus.APPROVED, approvalStage = it.approvalStage + 1)
                           else it.copy(approvalStage = it.approvalStage + 1) }
         log(n, "approved", "Stage ${t.approvalStage + 1} · ${role(stageRole).name}" + if (last) " · final" else "")
-        if (last) notify(t.companyId, t.assignedTo, "approved", "Work approved 🎉", t.title, t.id)
+        if (last) notify(t.companyId, t.assignedTo, "approved", "Work approved", t.title, t.id)
         if (last) "APPROVED" else "STAGE_APPROVED"
     }
 
@@ -436,7 +436,7 @@ class DemoRemoteDataSource : RemoteDataSource {
             delay(2200)
             lock.withLock {
                 val other = members.filter { it.companyId == companyId && it.userId != me?.id }.randomOrNull() ?: return@withLock
-                val replies = listOf("On it 👍", "Thanks, noted.", "Can we sync on this after lunch?", "Great — I'll update the task.", "Seen. Will share by EOD.")
+                val replies = listOf("On it.", "Thanks, noted.", "Can we sync on this after lunch?", "Great — I'll update the task.", "Seen. Will share by EOD.")
                 messagesList += Message(uuid(), companyId, channelId, other.userId, nameOf(other.userId), replies.random(), now())
             }
             bus.tryEmit("messages:$channelId")
@@ -523,9 +523,9 @@ class DemoRemoteDataSource : RemoteDataSource {
         val rohan = U("u-rohan", "rohan@devnex.app", "Rohan Das", false)
         users += listOf(dev, priya, arjun, kabir, neha, zoya, rohan)
 
-        val news = Co("c-news", "Velocity Sports Media", "velocity-sports", Industry.NEWSROOM, "active", 0xFF7C5CFF,
+        val news = Co("c-news", "Velocity Sports Media", "velocity-sports", Industry.NEWSROOM, "active", 0xFF1D4ED8,
             mutableSetOf(Modules.COVERAGE, Modules.PUBLISHING, Modules.IDEAS, Modules.OPS_LOG), now() - h(24.0 * 40))
-        val agency = Co("c-agency", "Pixel Orbit Agency", "pixel-orbit", Industry.AGENCY, "active", 0xFF22D3EE,
+        val agency = Co("c-agency", "Pixel Orbit Agency", "pixel-orbit", Industry.AGENCY, "active", 0xFF0F766E,
             mutableSetOf(Modules.PUBLISHING, Modules.IDEAS), now() - h(24.0 * 12))
         companies += listOf(news, agency)
 
@@ -593,7 +593,7 @@ class DemoRemoteDataSource : RemoteDataSource {
         fun msg(ch: Ch, u: U, body: String, agoMin: Int) =
             Message(uuid(), ch.companyId, ch.id, u.id, u.name, body, now() - agoMin * 60_000L)
         messagesList += listOf(
-            msg(ann, dev, "Welcome to DevNex 🚀 All coverage, edits and approvals now live here. No files — link to the shared drive.", 600),
+            msg(ann, dev, "Welcome to DevNex. All coverage, edits and approvals now live here. No files — link to the shared drive.", 600),
             msg(general, priya, "Championship day! Results desk opens 9:30.", 240),
             msg(general, arjun, "Kabir is at the stadium. First updates by 11.", 230),
             msg(rep, kabir, "400m final done — national record! Interview locked for 2pm.", 90),

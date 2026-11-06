@@ -106,7 +106,7 @@ fun CoverageTab(vm: MainViewModel, nav: MainNav, cvm: CoverageViewModel = hiltVi
             }
         }
         if (w?.can(Perm.COVERAGE_MANAGE) == true) ExtendedFloatingActionButton(
-            onClick = { showNew = true }, containerColor = Nx.Magenta, contentColor = Color.White,
+            onClick = { showNew = true }, containerColor = Nx.Violet, contentColor = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
             icon = { Icon(Icons.Rounded.Add, null) }, text = { Text("Register event") })
     }
@@ -136,7 +136,7 @@ fun EventScreen(onBack: () -> Unit, vm: CoverageViewModel = hiltViewModel()) {
             navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)) },
         floatingActionButton = { if (vm.workspace?.can(Perm.COVERAGE_SUBMIT) == true)
-            ExtendedFloatingActionButton(onClick = { showForm = true }, containerColor = Nx.Violet, contentColor = Color.White,
+            ExtendedFloatingActionButton(onClick = { showForm = true }, containerColor = Nx.Violet, contentColor = MaterialTheme.colorScheme.onPrimary,
                 icon = { Icon(Icons.Rounded.Edit, null) }, text = { Text("Submit report") }) },
     ) { pad ->
         AuroraBackground(Modifier.padding(pad), intensity = .5f) {
@@ -185,7 +185,7 @@ private fun SubmissionCard(s: CoverageSubmission, canManage: Boolean, onStatus: 
         }
         if (s.quotes.isNotBlank()) { Spacer(Modifier.height(8.dp)); Text(s.quotes, style = MaterialTheme.typography.bodyMedium) }
         if (s.newsAngle.isNotBlank()) { Spacer(Modifier.height(6.dp)); Pill("Angle: ${s.newsAngle}", Nx.Magenta) }
-        s.mediaLinks.forEach { Text("🔗 $it", style = MaterialTheme.typography.bodySmall, color = Nx.Cyan) }
+        s.mediaLinks.forEach { Text("Link: $it", style = MaterialTheme.typography.bodySmall, color = Nx.Cyan) }
         Spacer(Modifier.height(10.dp))
         if (canManage) Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf("selected" to "Select", "high_priority" to "High priority", "waiting_info" to "Need info", "scheduled" to "Later", "rejected" to "Reject")
