@@ -36,7 +36,19 @@ With no Supabase keys, DevNex starts in **Demo mode**. The in-memory backend enf
 | `reporter@devnex.app` | Kabir | Member. Claims from the Open pool, submits work |
 | `editor@devnex.app` | Neha | Member in the Video department |
 
-**Screens:** animated DevNex splash → login / register → two-step code → workspace switcher, *create company* wizard, *join with invite code* → bottom nav: **Home** (live pulse ring, stat tiles, "needs your action", department progress, deadlines) · **My Work** (Mine / Open pool / To review / All, search, new task) · **Coverage** (events, reporter submissions, P-score ranking; becomes **Projects** for non-newsroom companies) · **Messages** (channels, live chat, offline queue) · **More** (team & workload, insights, company admin, platform console, settings, sign out). Task detail has the lifecycle pipeline, claim, start, block, submit, approve or request changes, smart assignment (S-score), checklist, subtasks, discussion and history.
+**Design:** a professional light theme (navy and blue on white, slate text at WCAG AA contrast) with an optional dark theme. Settings → Appearance switches between them.
+
+**Screens (all working in Demo mode):**
+
+| Area | Screens |
+|---|---|
+| Start | Animated DevNex splash · Sign in · Create account · Forgot password · Two-step verification |
+| Workspaces | Company switcher · Create company wizard · Join with invite code |
+| Main tabs | **Home** (overview, needs your action, departments, deadlines) · **My Work** (Mine / Open pool / To review / All, search, new task) · **Coverage** (events, reporter submissions, P-score; *Projects* for non-newsroom companies) · **Messages** (channels, direct messages, new message) · **More** |
+| Tasks | Task detail (lifecycle, claim, start, block, submit, approve / request changes, smart assignment, checklist, deliverables, discussion, history) · Create task · Edit task · Approvals inbox · Calendar · Search |
+| Modules | Publishing calendar (schedule, record published link) · Ideas board (propose, review, approve, convert to task) · Operations log (append-only decisions, incidents, handovers) |
+| Company admin | Members (roles, departments, remove access) · Invite people & modules · Invitations (revoke) · Departments · Company settings (branding, visibility, two-step policy) · Audit log · Insights · Team & workload |
+| Account | My profile (name, title, availability, skills) · Notifications · Settings (theme, notification preferences, sync status) · Platform console (platform owner) |
 
 ## Connect the real backend (Supabase)
 
@@ -59,13 +71,16 @@ With no Supabase keys, DevNex starts in **Demo mode**. The in-memory backend enf
 
 | Area | How | Result |
 |---|---|---|
+| Whole app on a device | `AppJourneyTest`: drives the real app on an Android 14 emulator (Pixel 6) in GitHub Actions as reporter, head and owner, through every screen, with a screenshot per step | Runs on every push; the APK is only released if it passes |
 | Database migration | Applied to a fresh PostgreSQL 16 with a Supabase `auth` stub | Applies cleanly |
 | Tenant isolation, roles, approvals, chat, modules, support access, suspension | `backend/tests/10_rls_tests.sql`, 40 checks run as real `authenticated` users | **40/40 passed** |
 | Two phones claim one task at the same moment | Two concurrent PostgreSQL sessions calling `claim_task` | **Exactly one winner** |
 | Domain layer + Demo backend | Compiled with Kotlin 2.0.21 (the version the app pins) and run | **Compiles; 32/32 rule checks passed** |
 | Compose UI, Room, Hilt, Supabase client | Written against pinned library versions | **Not compiled here** (no Android SDK in the build environment). First Android Studio build is the real check |
 
-Re-run the database suite any time: `cd backend/tests && ./run_tests.sh` (needs PostgreSQL 16 binaries). Run the Kotlin rules test: `cd android && ./gradlew test`.
+Re-run the database suites any time: `cd backend/tests && ./run_tests.sh` (needs PostgreSQL 16 binaries). Kotlin rule tests: `cd android && ./gradlew test`. Device journey: `./gradlew connectedDebugAndroidTest` with an emulator running.
+
+Apply **both** migrations to Supabase in order: `0001_devnex_foundation.sql`, then `0002_devnex_modules.sql`.
 
 If the first Android Studio build reports an error, it is most likely in one of two places: a Supabase SDK call in `data/remote/SupabaseRemoteDataSource.kt` (MFA and realtime filter APIs change between versions), or a Material 3 parameter name. Paste the error and it is a quick fix.
 
