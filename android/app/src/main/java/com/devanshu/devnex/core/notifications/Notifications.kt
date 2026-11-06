@@ -45,6 +45,9 @@ object NotificationChannels {
  */
 class DevNexMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
+        val kind = when (message.data["kind"]) { "claim", "assignment", "release" -> "assignment"; "review" -> "review"
+            "approved", "changes" -> "approved"; else -> "message" }
+        if (!getSharedPreferences("devnex_ui", MODE_PRIVATE).getBoolean("notif_$kind", true)) return
         val title = message.notification?.title ?: message.data["title"] ?: "DevNex"
         val body = message.notification?.body ?: message.data["body"].orEmpty()
         NotificationChannels.show(this, (System.currentTimeMillis() % Int.MAX_VALUE).toInt(), title, body, message.data["task_id"])

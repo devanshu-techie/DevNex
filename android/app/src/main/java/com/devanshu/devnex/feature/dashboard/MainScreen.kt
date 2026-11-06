@@ -38,6 +38,7 @@ import com.devanshu.devnex.feature.coverage.CoverageTab
 import com.devanshu.devnex.feature.tasks.ProjectsTab
 import com.devanshu.devnex.feature.tasks.TaskCard
 import com.devanshu.devnex.feature.tasks.WorkTab
+import com.devanshu.devnex.navigation.Routes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -141,6 +142,8 @@ data class MainNav(
     val platform: () -> Unit,
     val settings: () -> Unit,
     val signedOut: () -> Unit,
+    /** Opens any secondary screen by route (see navigation.Routes). */
+    val go: (String) -> Unit = {},
 )
 
 @Composable
@@ -210,6 +213,7 @@ fun WorkspaceHeader(vm: MainViewModel, nav: MainNav, title: String? = null) {
             Pill(if (vm.offline) "Offline" else "Syncing $pending", if (vm.offline) Nx.Amber else Nx.Cyan)
             Spacer(Modifier.width(6.dp))
         }
+        IconButton({ nav.go(Routes.SEARCH) }) { Icon(Icons.Rounded.Search, "Search") }
         IconButton(nav.notifications) {
             val unread = notes.count { !it.read }
             BadgedBox(badge = { if (unread > 0) Badge(containerColor = Nx.Magenta) { Text("$unread") } }) {
@@ -374,19 +378,44 @@ fun MoreTab(vm: MainViewModel, nav: MainNav) {
                 }
             }
         }
-        item { SectionHeader("Workspace") }
-        item { MoreRow(Icons.Rounded.SwapHoriz, "Switch company", "One account, every workspace", nav.switchWorkspace) }
-        item { MoreRow(Icons.Rounded.NotificationsNone, "Notifications", "Assignments, reviews, mentions", nav.notifications) }
+        item { SectionHeader("Work") }
+        if (w?.can(Perm.TASK_APPROVE) == true)
+            item { MoreRow(Icons.Rounded.AssignmentTurnedIn, "Approvals", "Submitted work waiting for your decision", { nav.go(Routes.APPROVALS) }) }
+        item { MoreRow(Icons.Rounded.DateRange, "Calendar", "Deadlines, events and publishing by day", { nav.go(Routes.CALENDAR) }) }
+        item { MoreRow(Icons.Rounded.Search, "Search", "Tasks, people, skills and events", { nav.go(Routes.SEARCH) }) }
         item { MoreRow(Icons.Rounded.Groups, "Team & workload", "Who has capacity right now", nav.team) }
         if (w?.can(Perm.REPORT_COMPANY) == true || w?.can(Perm.REPORT_DEPARTMENT) == true)
             item { MoreRow(Icons.Rounded.BarChart, "Insights", "Throughput, bottlenecks, workload", nav.insights) }
-        if (w?.can(Perm.MEMBER_INVITE) == true || w?.can(Perm.COMPANY_MANAGE) == true)
-            item { MoreRow(Icons.Rounded.SupervisorAccount, "Company admin", "Invites, modules, departments", nav.admin) }
+        if (w?.has(Modules.PUBLISHING) == true || w?.has(Modules.IDEAS) == true || w?.has(Modules.OPS_LOG) == true) item { SectionHeader("Modules") }
+        if (w?.has(Modules.PUBLISHING) == true)
+            item { MoreRow(Icons.Rounded.Event, "Publishing calendar", "Social and website schedule, published links", { nav.go(Routes.PUBLISHING) }) }
+        if (w?.has(Modules.IDEAS) == true)
+            item { MoreRow(Icons.Rounded.Lightbulb, "Ideas board", "Future work, reviewed and turned into tasks", { nav.go(Routes.IDEAS) }) }
+        if (w?.has(Modules.OPS_LOG) == true)
+            item { MoreRow(Icons.Rounded.History, "Operations log", "Decisions, incidents and handovers", { nav.go(Routes.OPS_LOG) }) }
+        if (w?.can(Perm.MEMBER_INVITE) == true || w?.can(Perm.COMPANY_MANAGE) == true || w?.can(Perm.AUDIT_VIEW) == true) {
+            item { SectionHeader("Company administration") }
+            if (w?.can(Perm.MEMBER_INVITE) == true || w?.can(Perm.MEMBER_MANAGE) == true)
+                item { MoreRow(Icons.Rounded.SupervisorAccount, "Members", "Roles, departments and access", { nav.go(Routes.MEMBERS) }) }
+            if (w?.can(Perm.MEMBER_INVITE) == true)
+                item { MoreRow(Icons.Rounded.PersonAdd, "Invite people & modules", "New invitations, optional modules", nav.admin) }
+            if (w?.can(Perm.MEMBER_INVITE) == true)
+                item { MoreRow(Icons.Rounded.MailOutline, "Invitations", "Pending, accepted and revoked", { nav.go(Routes.INVITATIONS) }) }
+            if (w?.can(Perm.DEPARTMENT_MANAGE) == true)
+                item { MoreRow(Icons.Rounded.AccountTree, "Departments", "Create and organise teams", { nav.go(Routes.DEPARTMENTS) }) }
+            if (w?.can(Perm.COMPANY_MANAGE) == true)
+                item { MoreRow(Icons.Rounded.Business, "Company settings", "Branding, visibility, two-step verification", { nav.go(Routes.COMPANY_SETTINGS) }) }
+            if (w?.can(Perm.AUDIT_VIEW) == true)
+                item { MoreRow(Icons.Rounded.Security, "Audit log", "Every sensitive action on record", { nav.go(Routes.AUDIT) }) }
+        }
+        item { SectionHeader("Account") }
+        item { MoreRow(Icons.Rounded.Person, "My profile", "Name, title, availability, skills", { nav.go(Routes.PROFILE) }) }
+        item { MoreRow(Icons.Rounded.SwapHoriz, "Switch company", "One account, every workspace", nav.switchWorkspace) }
+        item { MoreRow(Icons.Rounded.NotificationsNone, "Notifications", "Assignments, reviews, mentions", nav.notifications) }
         if (user?.isPlatformAdmin == true) {
             item { SectionHeader("Platform") }
             item { MoreRow(Icons.Rounded.Public, "Platform console", "Companies, status, usage", nav.platform, Nx.Cyan) }
         }
-        item { SectionHeader("App") }
         item { MoreRow(Icons.Rounded.Tune, "Settings", "Theme, sync, security, about", nav.settings) }
         item { MoreRow(Icons.AutoMirrored.Rounded.Logout, "Sign out", "Clears this device's cache", { vm.signOut(nav.signedOut) }, Nx.Red) }
     }

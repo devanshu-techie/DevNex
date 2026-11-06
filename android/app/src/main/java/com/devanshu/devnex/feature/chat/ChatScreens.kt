@@ -55,6 +55,13 @@ fun ChannelsTab(vm: MainViewModel, nav: MainNav, cvm: ChannelsViewModel = hiltVi
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item { WorkspaceHeader(vm, nav, "Messages") }
         item {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.End) {
+                FilledTonalButton({ nav.go(com.devanshu.devnex.navigation.Routes.NEW_MESSAGE) }) {
+                    Icon(Icons.Rounded.Edit, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("New message")
+                }
+            }
+        }
+        item {
             Text("Text-only by design: fast, light, searchable. Share files as links.", style = MaterialTheme.typography.bodySmall,
                 color = LocalNx.current.mute, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
         }
@@ -66,11 +73,12 @@ fun ChannelsTab(vm: MainViewModel, nav: MainNav, cvm: ChannelsViewModel = hiltVi
                     .background(if (c.kind == "announcement") Nx.Amber.copy(alpha = .15f) else Nx.Violet.copy(alpha = .15f)),
                     contentAlignment = Alignment.Center) {
                     if (c.kind == "announcement") Icon(Icons.Rounded.Announcement, null, tint = Nx.Amber)
+                    else if (c.kind == "dm") Avatar(c.name, 44.dp)
                     else Text("#", style = MaterialTheme.typography.titleLarge, color = Nx.VioletSoft)
                 }
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(c.name, style = MaterialTheme.typography.titleSmall)
+                    Text(if (c.kind == "dm") c.name else "#${c.name}", style = MaterialTheme.typography.titleSmall)
                     Text(c.lastMessage ?: "No messages yet", style = MaterialTheme.typography.bodySmall, color = LocalNx.current.mute,
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
@@ -122,7 +130,7 @@ fun ConversationScreen(onBack: () -> Unit, vm: ConversationViewModel = hiltViewM
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {
-            TopAppBar(title = { Column { Text("# ${vm.channelName}"); Text("Live updates on", style = MaterialTheme.typography.labelSmall, color = Nx.Lime) } },
+            TopAppBar(title = { Column { Text(if (vm.channelName.contains(' ') || vm.channelName.firstOrNull()?.isUpperCase() == true) vm.channelName else "#${vm.channelName}"); Text("Live updates on", style = MaterialTheme.typography.labelSmall, color = Nx.Lime) } },
                 navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent))
         },

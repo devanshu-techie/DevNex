@@ -16,6 +16,15 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.devanshu.devnex.feature.admin.AdminScreen
 import com.devanshu.devnex.feature.admin.PlatformScreen
+import com.devanshu.devnex.feature.admin.MembersScreen
+import com.devanshu.devnex.feature.admin.DepartmentsScreen
+import com.devanshu.devnex.feature.admin.CompanySettingsScreen
+import com.devanshu.devnex.feature.admin.AuditScreen
+import com.devanshu.devnex.feature.admin.InvitationsScreen
+import com.devanshu.devnex.feature.modules.PublishingScreen
+import com.devanshu.devnex.feature.modules.IdeasScreen
+import com.devanshu.devnex.feature.modules.OpsLogScreen
+import com.devanshu.devnex.feature.tools.*
 import com.devanshu.devnex.feature.auth.*
 import com.devanshu.devnex.feature.chat.ConversationScreen
 import com.devanshu.devnex.feature.coverage.EventScreen
@@ -52,6 +61,22 @@ object Routes {
     const val ADMIN = "admin"
     const val PLATFORM = "platform"
     const val SETTINGS = "settings"
+    const val FORGOT = "forgot"
+    const val APPROVALS = "approvals"
+    const val CALENDAR = "calendar"
+    const val SEARCH = "search"
+    const val PROFILE = "profile"
+    const val NEW_MESSAGE = "new_message"
+    const val EDIT_TASK = "edit_task/{taskId}"
+    const val PUBLISHING = "publishing"
+    const val IDEAS = "ideas"
+    const val OPS_LOG = "ops_log"
+    const val MEMBERS = "members"
+    const val DEPARTMENTS = "departments"
+    const val COMPANY_SETTINGS = "company_settings"
+    const val AUDIT = "audit"
+    const val INVITATIONS = "invitations"
+    fun editTask(id: String) = "edit_task/$id"
 
     fun task(id: String) = "task/$id"
     fun createTask(parentId: String?) = "create_task?parentId=${parentId ?: "none"}"
@@ -90,7 +115,8 @@ fun DevNexNavHost(pendingInvite: String?, pendingTaskId: String?, nav: NavHostCo
                 }
             })
         }
-        composable(Routes.LOGIN) { LoginScreen(onAuthed = ::after, onRegister = { nav.navigate(Routes.REGISTER) }) }
+        composable(Routes.LOGIN) { LoginScreen(onAuthed = ::after, onRegister = { nav.navigate(Routes.REGISTER) }, onForgot = { nav.navigate(Routes.FORGOT) }) }
+        composable(Routes.FORGOT) { ForgotPasswordScreen(onBack = { nav.popBackStack() }) }
         composable(Routes.REGISTER) { RegisterScreen(onBack = { nav.popBackStack() }, onAuthed = ::after) }
         composable(Routes.MFA) { MfaScreen(onVerified = ::after, onBack = { resetTo(Routes.LOGIN) }) }
 
@@ -123,11 +149,12 @@ fun DevNexNavHost(pendingInvite: String?, pendingTaskId: String?, nav: NavHostCo
                 platform = { nav.navigate(Routes.PLATFORM) },
                 settings = { nav.navigate(Routes.SETTINGS) },
                 signedOut = { resetTo(Routes.LOGIN) },
+                go = { nav.navigate(it) },
             ))
         }
         composable(Routes.TASK, arguments = listOf(navArgument("taskId") { type = NavType.StringType })) {
             TaskDetailScreen(onBack = { nav.popBackStack() }, onOpenTask = { nav.navigate(Routes.task(it)) },
-                onAddSubtask = { nav.navigate(Routes.createTask(it)) })
+                onAddSubtask = { nav.navigate(Routes.createTask(it)) }, onEdit = { nav.navigate(Routes.editTask(it)) })
         }
         composable(Routes.CREATE_TASK, arguments = listOf(navArgument("parentId") { type = NavType.StringType; defaultValue = "none" })) {
             CreateTaskScreen(onBack = { nav.popBackStack() }, onCreated = { id ->
@@ -146,5 +173,23 @@ fun DevNexNavHost(pendingInvite: String?, pendingTaskId: String?, nav: NavHostCo
         composable(Routes.ADMIN) { AdminScreen(onBack = { nav.popBackStack() }) }
         composable(Routes.PLATFORM) { PlatformScreen(onBack = { nav.popBackStack() }) }
         composable(Routes.SETTINGS) { SettingsScreen(onBack = { nav.popBackStack() }) }
+
+        val back = { nav.popBackStack(); Unit }
+        val openTask = { id: String -> nav.navigate(Routes.task(id)) }
+        val openDm = { id: String, name: String -> nav.navigate(Routes.channel(id, name)) }
+        composable(Routes.APPROVALS) { ApprovalsScreen(back, openTask) }
+        composable(Routes.CALENDAR) { CalendarScreen(back, openTask) }
+        composable(Routes.SEARCH) { SearchScreen(back, openTask, openDm) }
+        composable(Routes.PROFILE) { ProfileScreen(back) }
+        composable(Routes.NEW_MESSAGE) { NewMessageScreen(back, { id, name -> nav.popBackStack(); openDm(id, name) }) }
+        composable(Routes.EDIT_TASK, arguments = listOf(navArgument("taskId") { type = NavType.StringType })) { EditTaskScreen(back) }
+        composable(Routes.PUBLISHING) { PublishingScreen(back) }
+        composable(Routes.IDEAS) { IdeasScreen(back, openTask) }
+        composable(Routes.OPS_LOG) { OpsLogScreen(back) }
+        composable(Routes.MEMBERS) { MembersScreen(back, onInvite = { nav.navigate(Routes.ADMIN) }) }
+        composable(Routes.DEPARTMENTS) { DepartmentsScreen(back) }
+        composable(Routes.COMPANY_SETTINGS) { CompanySettingsScreen(back) }
+        composable(Routes.AUDIT) { AuditScreen(back) }
+        composable(Routes.INVITATIONS) { InvitationsScreen(back, onInvite = { nav.navigate(Routes.ADMIN) }) }
     }
 }

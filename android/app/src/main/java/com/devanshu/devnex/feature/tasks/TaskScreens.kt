@@ -262,7 +262,7 @@ class TaskDetailViewModel @Inject constructor(
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun TaskDetailScreen(onBack: () -> Unit, onOpenTask: (String) -> Unit, onAddSubtask: (String) -> Unit, vm: TaskDetailViewModel = hiltViewModel()) {
+fun TaskDetailScreen(onBack: () -> Unit, onOpenTask: (String) -> Unit, onAddSubtask: (String) -> Unit, onEdit: (String) -> Unit = {}, vm: TaskDetailViewModel = hiltViewModel()) {
     val task by vm.task.collectAsStateWithLifecycle()
     val checklist by vm.checklist.collectAsStateWithLifecycle()
     val subtasks by vm.subtasks.collectAsStateWithLifecycle()
@@ -283,7 +283,11 @@ fun TaskDetailScreen(onBack: () -> Unit, onOpenTask: (String) -> Unit, onAddSubt
             TopAppBar(
                 title = { Text(t?.let { "#" + it.id.takeLast(6).uppercase() } ?: "", fontFamily = Mono, style = MaterialTheme.typography.labelLarge) },
                 navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
-                actions = { if (t != null) PriorityBar(t.priority, Modifier.padding(end = 16.dp)) },
+                actions = {
+                    if (t != null && (w?.can(Perm.TASK_EDIT) == true || t.createdBy == vm.me))
+                        IconButton({ onEdit(t.id) }) { Icon(Icons.Rounded.Edit, "Edit task") }
+                    if (t != null) PriorityBar(t.priority, Modifier.padding(end = 16.dp))
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
             )
         },
@@ -291,7 +295,7 @@ fun TaskDetailScreen(onBack: () -> Unit, onOpenTask: (String) -> Unit, onAddSubt
     ) { pad ->
         AuroraBackground(Modifier.padding(pad), intensity = .6f) {
             if (t == null) { SkeletonList(3); return@AuroraBackground }
-            Celebration(vm.celebrate)
+            // success feedback is the snackbar + haptic; no confetti in a professional tool
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
                 item {
                     Column(Modifier.padding(horizontal = 20.dp)) {

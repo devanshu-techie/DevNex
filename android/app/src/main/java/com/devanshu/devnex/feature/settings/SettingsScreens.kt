@@ -41,6 +41,15 @@ class AppPrefs @Inject constructor(@ApplicationContext context: Context) {
     private val _theme = MutableStateFlow(runCatching { ThemeMode.valueOf(prefs.getString("theme", "LIGHT")!!) }.getOrDefault(ThemeMode.LIGHT))
     val theme: StateFlow<ThemeMode> = _theme
     fun setTheme(m: ThemeMode) { prefs.edit().putString("theme", m.name).apply(); _theme.value = m }
+
+    /** Which push notifications this device shows (read by DevNexMessagingService). */
+    val notificationKinds = listOf(
+        "assignment" to "New assignments and claims", "review" to "Work waiting for my review",
+        "approved" to "Approvals and requested changes", "message" to "Messages and mentions",
+    )
+    private val _notify = MutableStateFlow(notificationKinds.associate { (k, _) -> k to prefs.getBoolean("notif_$k", true) })
+    val notify: StateFlow<Map<String, Boolean>> = _notify
+    fun setNotify(kind: String, on: Boolean) { prefs.edit().putBoolean("notif_$kind", on).apply(); _notify.value = _notify.value + (kind to on) }
 }
 
 @HiltViewModel
@@ -57,6 +66,7 @@ class SettingsViewModel @Inject constructor(
 @Composable
 fun SettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()) {
     val theme by vm.prefs.theme.collectAsStateWithLifecycle()
+    val notify by vm.prefs.notify.collectAsStateWithLifecycle()
     val pending by vm.pending.collectAsStateWithLifecycle()
     var replay by remember { mutableIntStateOf(0) }
     Scaffold(containerColor = Color.Transparent, topBar = {
@@ -74,6 +84,18 @@ fun SettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = hiltViewModel()) 
                                 label = { Text(m.name.lowercase().replaceFirstChar { it.uppercase() }) },
                                 leadingIcon = { Icon(when (m) { ThemeMode.DARK -> Icons.Rounded.DarkMode; ThemeMode.LIGHT -> Icons.Rounded.LightMode
                                     ThemeMode.SYSTEM -> Icons.Rounded.Settings }, null, Modifier.size(16.dp)) }) }
+                        }
+                    }
+                }
+                item {
+                    GlassCard(Modifier.fillMaxWidth()) {
+                        Text("Notifications on this phone", style = MaterialTheme.typography.titleMedium)
+                        Text("DevNex only notifies for meaningful events, never for minor edits.", style = MaterialTheme.typography.bodySmall, color = LocalNx.current.mute)
+                        vm.prefs.notificationKinds.forEach { (k, label) ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                                Switch(notify[k] != false, { vm.prefs.setNotify(k, it) })
+                            }
                         }
                     }
                 }

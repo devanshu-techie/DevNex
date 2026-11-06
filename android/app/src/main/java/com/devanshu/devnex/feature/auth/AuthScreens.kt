@@ -81,7 +81,7 @@ class AuthViewModel @Inject constructor(
 }
 
 @Composable
-fun LoginScreen(onAuthed: (AfterAuth) -> Unit, onRegister: () -> Unit, vm: AuthViewModel = hiltViewModel()) {
+fun LoginScreen(onAuthed: (AfterAuth) -> Unit, onRegister: () -> Unit, onForgot: () -> Unit = {}, vm: AuthViewModel = hiltViewModel()) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var show by remember { mutableStateOf(false) }
@@ -115,7 +115,10 @@ fun LoginScreen(onAuthed: (AfterAuth) -> Unit, onRegister: () -> Unit, vm: AuthV
                 vm.signIn(email, password, onAuthed)
             }
             Spacer(Modifier.height(12.dp))
-            TextButton(onRegister, Modifier.align(Alignment.CenterHorizontally)) { Text("New here? Create an account") }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                TextButton(onForgot) { Text("Forgot password?") }
+                TextButton(onRegister) { Text("Create an account") }
+            }
 
             if (vm.isDemo) {
                 Spacer(Modifier.height(16.dp))
