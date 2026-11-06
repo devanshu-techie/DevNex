@@ -281,14 +281,14 @@ fun TaskDetailScreen(onBack: () -> Unit, onOpenTask: (String) -> Unit, onAddSubt
         snackbarHost = { SnackbarHost(snack) },
         topBar = {
             TopAppBar(
-                title = { Text(t?.let { "#" + it.id.takeLast(6).uppercase() } ?: "", fontFamily = Mono, style = MaterialTheme.typography.labelLarge) },
+                title = { Text(if (t?.parentTaskId != null) "Deliverable" else "Task details", style = MaterialTheme.typography.titleLarge) },
                 navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") } },
                 actions = {
                     if (t != null && (w?.can(Perm.TASK_EDIT) == true || t.createdBy == vm.me))
                         IconButton({ onEdit(t.id) }) { Icon(Icons.Rounded.Edit, "Edit task") }
                     if (t != null) PriorityBar(t.priority, Modifier.padding(end = 16.dp))
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
             )
         },
         bottomBar = { if (t != null && w != null) ActionBar(t, w!!, vm, onAsk = { dialog = it }, onAssign = { showAssign = true }) },
@@ -454,11 +454,15 @@ private fun ActionBar(t: Task, w: Workspace, vm: TaskDetailViewModel, onAsk: (St
         if (manager && !t.status.isDone) add(if (t.assignedTo == null) "Assign" to onAssign else "Reassign" to onAssign)
     }
     if (primary == null && secondary.isEmpty()) return
-    Surface(color = MaterialTheme.colorScheme.surface.copy(alpha = .96f)) {
-        Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            secondary.forEach { (label, go) -> OutlinedButton(go, shape = RoundedCornerShape(14.dp), enabled = !vm.busy) { Text(label, maxLines = 1) } }
-            if (primary != null) GradientButton(primary.first, Modifier.weight(1f), loading = vm.busy, onClick = primary.second)
+    Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 6.dp) {
+        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (secondary.isNotEmpty()) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                secondary.forEach { (label, go) ->
+                    OutlinedButton(go, Modifier.weight(1f), shape = RoundedCornerShape(12.dp), enabled = !vm.busy,
+                        contentPadding = PaddingValues(horizontal = 8.dp)) { Text(label, maxLines = 1) }
+                }
+            }
+            if (primary != null) GradientButton(primary.first, Modifier.fillMaxWidth(), loading = vm.busy, onClick = primary.second)
         }
     }
 }

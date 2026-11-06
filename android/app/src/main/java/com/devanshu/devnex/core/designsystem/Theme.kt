@@ -127,7 +127,10 @@ fun DevNexTheme(mode: ThemeMode = ThemeMode.LIGHT, content: @Composable () -> Un
 
     val nx = NxColors(glass = p.surface, glassBorder = p.line, mute = p.mute, line = p.line, dark = dark)
     CompositionLocalProvider(LocalNx provides nx) {
-        MaterialTheme(colorScheme = scheme, typography = NxType, content = content)
+        MaterialTheme(colorScheme = scheme, typography = NxType) {
+            // Default text/icon colour for everything not inside a Surface — keeps text readable in both themes.
+            CompositionLocalProvider(androidx.compose.material3.LocalContentColor provides scheme.onBackground, content = content)
+        }
     }
 }
 
