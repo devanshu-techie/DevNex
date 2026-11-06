@@ -241,3 +241,29 @@ data class AssigneeSuggestion(val member: Member, val score: Double, val reason:
 
 class VersionConflictException : Exception("Someone else changed this task. Refresh and try again.")
 class DomainException(message: String) : Exception(message)
+
+// ---------------------------------------------------------------- v2: modules & administration
+data class PublishingSlot(
+    val id: String, val companyId: String, val title: String, val platform: String, val taskId: String?,
+    val ownerId: String?, val ownerName: String?, val scheduledAt: Long, val status: String, val caption: String,
+    val publishedUrl: String?, val publishedAt: Long?, val views: Int?, val engagement: Int?,
+)
+
+data class Idea(
+    val id: String, val companyId: String, val title: String, val description: String, val impact: String,
+    val status: String, val proposedOwner: String?, val ownerName: String?, val reviewDate: Long?,
+    val convertedTaskId: String?, val createdBy: String, val createdByName: String, val createdAt: Long,
+)
+
+data class OpsEntry(val id: String, val companyId: String, val category: String, val body: String, val authorName: String, val at: Long)
+
+data class AuditEntry(val id: String, val actorName: String, val action: String, val entity: String, val detail: String, val at: Long)
+
+data class Invitation(val id: String, val email: String, val roleKey: String, val status: String, val expiresAt: Long)
+
+data class CompanySettings(val name: String, val brandColor: String, val memberVisibility: String, val mfaRequiredRank: Int)
+
+object Platforms {
+    val all = listOf("instagram", "facebook", "youtube", "x", "linkedin", "website", "newsletter", "other")
+    fun label(k: String) = when (k) { "x" -> "X (Twitter)"; "youtube" -> "YouTube"; "linkedin" -> "LinkedIn"; else -> k.replaceFirstChar { it.uppercase() } }
+}

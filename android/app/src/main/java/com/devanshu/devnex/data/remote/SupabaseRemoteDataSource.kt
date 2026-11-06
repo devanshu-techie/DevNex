@@ -242,8 +242,14 @@ class SupabaseRemoteDataSource(private val client: SupabaseClient) : RemoteDataS
 
     // ---------------------------------------------------------------- chat
     override suspend fun channels(companyId: String) = call {
-        client.from("chat_channels").select { filter { eq("company_id", companyId) } }.decodeList<ChannelDto>()
-            .map { Channel(it.id, it.companyId, it.name, it.kind) }
+        val rows = client.from("chat_channels").select { filter { eq("company_id", companyId) } }.decodeList<ChannelDto>()
+        val me = uid()
+        val others = rows.filter { it.kind == "dm" }.mapNotNull { r -> r.name.split(':').drop(1).firstOrNull { it != me } }
+        val names = names(others)
+        rows.map { r ->
+            val title = if (r.kind == "dm") names[r.name.split(':').drop(1).firstOrNull { it != me }] ?: "Direct message" else r.name
+            Channel(r.id, r.companyId, title, r.kind)
+        }
     }
 
     override suspend fun messages(channelId: String, olderThan: Long?, limit: Int) = call {
@@ -355,6 +361,154 @@ class SupabaseRemoteDataSource(private val client: SupabaseClient) : RemoteDataS
         Unit
     }
 
+
+    // ================================================================ v2
+    override suspend fun resetPassword(email: String) = call { client.auth.resetPasswordForEmail(email.trim()); Unit }
+
+    override suspend fun updateName(fullName: String) = call {
+        client.from("profiles").update(buildJsonObject { put("full_name", fullName.trim()) }) { filter { eq("id", uid()) } }
+        Unit
+    }
+
+    override suspend fun updateMyMembership(companyId: String, title: String, availability: String, skills: List<String>) = call {
+        client.from("company_memberships").update(buildJsonObject {
+            put("title", title.trim()); put("availability", availability)
+            putJsonArray("skills") { skills.map { it.trim() }.filter { it.isNotBlank() }.forEach { add(it) } }
+        }) { filter { eq("company_id", companyId); eq("user_id", uid()) } }
+        Unit
+    }
+
+    override suspend fun updateTask(taskId: String, title: String, description: String, priority: Priority, dueAt: Long?) = call {
+        client.from("tasks").update(buildJsonObject {
+            put("title", title.trim()); put("description", description.trim()); put("priority", priority.key)
+            put("due_at", dueAt?.let { iso(it) })
+        }) { filter { eq("id", taskId) } }
+        Unit
+    }
+
+    override suspend fun openDirect(companyId: String, otherUserId: String) = call {
+        rpcText("open_direct_channel", buildJsonObject { put("p_company", companyId); put("p_other", otherUserId) })
+    }
+
+    override suspend fun setMemberRole(membershipId: String, roleKey: String) = call {
+        client.postgrest.rpc("set_member_role", buildJsonObject { put("p_membership", membershipId); put("p_role_key", roleKey) }); Unit
+    }
+
+    override suspend fun setMemberStatus(membershipId: String, status: String) = call {
+        client.postgrest.rpc("set_member_status", buildJsonObject { put("p_membership", membershipId); put("p_status", status) }); Unit
+    }
+
+    override suspend fun setMemberDepartment(membershipId: String, departmentId: String?) = call {
+        client.postgrest.rpc("set_member_department", buildJsonObject { put("p_membership", membershipId); put("p_department", departmentId) }); Unit
+    }
+
+    override suspend fun createDepartment(companyId: String, name: String) = call {
+        client.from("company_departments").insert(buildJsonObject { put("company_id", companyId); put("name", name.trim()) }); Unit
+    }
+
+    override suspend fun deleteDepartment(departmentId: String) = call {
+        client.from("company_departments").delete { filter { eq("id", departmentId) } }; Unit
+    }
+
+    override suspend fun companySettings(companyId: String) = call {
+        val c = client.from("companies").select { filter { eq("id", companyId) } }.decodeSingle<CompanyDto>()
+        val st = client.from("company_settings").select { filter { eq("company_id", companyId) } }.decodeSingle<SettingsDto>()
+        CompanySettings(c.name, c.brandColor, st.memberVisibility, st.mfaRequiredRank)
+    }
+
+    override suspend fun updateCompanySettings(companyId: String, settings: CompanySettings) = call {
+        client.postgrest.rpc("update_company_profile", buildJsonObject {
+            put("p_company", companyId); put("p_name", settings.name.trim()); put("p_brand", settings.brandColor)
+            put("p_visibility", settings.memberVisibility); put("p_mfa_rank", settings.mfaRequiredRank)
+        }); Unit
+    }
+
+    override suspend fun auditLog(companyId: String) = call {
+        val rows = client.from("audit_logs").select {
+            filter { eq("company_id", companyId) }; order("created_at", Order.DESCENDING); limit(200)
+        }.decodeList<AuditDto>()
+        val names = names(rows.mapNotNull { it.actorId })
+        rows.map { AuditEntry(it.id.toString(), names[it.actorId] ?: "System", it.action, it.entity, it.detail.toString(), ts(it.createdAt) ?: 0) }
+    }
+
+    override suspend fun invitations(companyId: String) = call {
+        val roles = client.from("company_roles").select { filter { eq("company_id", companyId) } }.decodeList<RoleDto>().associateBy { it.id }
+        client.from("company_invitations").select { filter { eq("company_id", companyId) }; order("created_at", Order.DESCENDING) }
+            .decodeList<InvitationDto>().map {
+                val expired = (ts(it.expiresAt) ?: 0) < System.currentTimeMillis() && it.status == "pending"
+                Invitation(it.id, it.email, roles[it.roleId]?.key ?: "member", if (expired) "expired" else it.status, ts(it.expiresAt) ?: 0)
+            }
+    }
+
+    override suspend fun revokeInvitation(id: String) = call {
+        client.from("company_invitations").update(buildJsonObject { put("status", "revoked") }) { filter { eq("id", id) } }; Unit
+    }
+
+    override suspend fun slots(companyId: String) = call {
+        val rows = client.from("publishing_slots").select { filter { eq("company_id", companyId) }; order("scheduled_at", Order.ASCENDING); limit(300) }
+            .decodeList<SlotDto>()
+        val names = names(rows.mapNotNull { it.ownerId })
+        rows.map {
+            PublishingSlot(it.id, it.companyId, it.title, it.platform, it.taskId, it.ownerId, names[it.ownerId], ts(it.scheduledAt) ?: 0,
+                it.status, it.caption, it.publishedUrl, ts(it.publishedAt), it.views, it.engagement)
+        }
+    }
+
+    override suspend fun createSlot(companyId: String, title: String, platform: String, ownerId: String?, scheduledAt: Long, caption: String) = call {
+        client.from("publishing_slots").insert(buildJsonObject {
+            put("company_id", companyId); put("title", title.trim()); put("platform", platform); put("owner_id", ownerId ?: uid())
+            put("scheduled_at", iso(scheduledAt)); put("status", "scheduled"); put("caption", caption.trim()); put("created_by", uid())
+        }); Unit
+    }
+
+    override suspend fun setSlotStatus(slotId: String, status: String) = call {
+        client.from("publishing_slots").update(buildJsonObject { put("status", status) }) { filter { eq("id", slotId) } }; Unit
+    }
+
+    override suspend fun publishSlot(slotId: String, url: String) = call {
+        client.postgrest.rpc("publish_slot", buildJsonObject { put("p_slot", slotId); put("p_url", url.trim()) }); Unit
+    }
+
+    override suspend fun ideas(companyId: String) = call {
+        val rows = client.from("ideas").select { filter { eq("company_id", companyId) }; order("created_at", Order.DESCENDING); limit(200) }
+            .decodeList<IdeaDto>()
+        val names = names(rows.flatMap { listOfNotNull(it.proposedOwner, it.createdBy) })
+        rows.map {
+            Idea(it.id, it.companyId, it.title, it.description, it.impact, it.status, it.proposedOwner, names[it.proposedOwner],
+                it.reviewDate?.let { d -> runCatching { java.time.LocalDate.parse(d).toEpochDay() * 86_400_000L }.getOrNull() },
+                it.convertedTaskId, it.createdBy, names[it.createdBy] ?: "Member", ts(it.createdAt) ?: 0)
+        }
+    }
+
+    override suspend fun createIdea(companyId: String, title: String, description: String, impact: String, ownerId: String?, reviewDate: Long?) = call {
+        client.from("ideas").insert(buildJsonObject {
+            put("company_id", companyId); put("title", title.trim()); put("description", description.trim()); put("impact", impact)
+            put("proposed_owner", ownerId); put("created_by", uid())
+            put("review_date", reviewDate?.let { java.time.LocalDate.ofEpochDay(it / 86_400_000L).toString() })
+        }); Unit
+    }
+
+    override suspend fun setIdeaStatus(ideaId: String, status: String) = call {
+        client.postgrest.rpc("set_idea_status", buildJsonObject { put("p_idea", ideaId); put("p_status", status) }); Unit
+    }
+
+    override suspend fun convertIdea(ideaId: String) = call {
+        rpcText("convert_idea_to_task", buildJsonObject { put("p_idea", ideaId) })
+    }
+
+    override suspend fun opsLog(companyId: String) = call {
+        val rows = client.from("ops_log").select { filter { eq("company_id", companyId) }; order("created_at", Order.DESCENDING); limit(200) }
+            .decodeList<OpsDto>()
+        val names = names(rows.map { it.authorId })
+        rows.map { OpsEntry(it.id.toString(), it.companyId, it.category, it.body, names[it.authorId] ?: "Member", ts(it.createdAt) ?: 0) }
+    }
+
+    override suspend fun addOps(companyId: String, category: String, body: String) = call {
+        client.from("ops_log").insert(buildJsonObject {
+            put("company_id", companyId); put("category", category); put("body", body.trim()); put("author_id", uid())
+        }); Unit
+    }
+
     private fun parseColor(hex: String): Long =
         runCatching { 0xFF000000 or hex.removePrefix("#").toLong(16) }.getOrDefault(0xFF7C5CFF)
 
@@ -424,3 +578,22 @@ class SupabaseRemoteDataSource(private val client: SupabaseClient) : RemoteDataS
 )
 @Serializable data class OverviewDto(@SerialName("company_id") val companyId: String, val name: String, val industry: String,
     val status: String, val plan: String, val members: Long, val tasks: Long, @SerialName("created_at") val createdAt: String? = null)
+
+@Serializable data class CompanyDto(val id: String, val name: String, @SerialName("brand_color") val brandColor: String = "#1D4ED8")
+@Serializable data class SettingsDto(@SerialName("member_visibility") val memberVisibility: String = "department",
+    @SerialName("mfa_required_rank") val mfaRequiredRank: Int = 90)
+@Serializable data class AuditDto(val id: Long, @SerialName("actor_id") val actorId: String? = null, val action: String, val entity: String,
+    val detail: kotlinx.serialization.json.JsonObject = kotlinx.serialization.json.JsonObject(emptyMap()), @SerialName("created_at") val createdAt: String? = null)
+@Serializable data class InvitationDto(val id: String, val email: String, @SerialName("role_id") val roleId: String, val status: String,
+    @SerialName("expires_at") val expiresAt: String? = null)
+@Serializable data class SlotDto(val id: String, @SerialName("company_id") val companyId: String, val title: String, val platform: String,
+    @SerialName("task_id") val taskId: String? = null, @SerialName("owner_id") val ownerId: String? = null,
+    @SerialName("scheduled_at") val scheduledAt: String, val status: String, val caption: String = "",
+    @SerialName("published_url") val publishedUrl: String? = null, @SerialName("published_at") val publishedAt: String? = null,
+    val views: Int? = null, val engagement: Int? = null)
+@Serializable data class IdeaDto(val id: String, @SerialName("company_id") val companyId: String, val title: String, val description: String = "",
+    val impact: String = "medium", val status: String = "new", @SerialName("proposed_owner") val proposedOwner: String? = null,
+    @SerialName("review_date") val reviewDate: String? = null, @SerialName("converted_task_id") val convertedTaskId: String? = null,
+    @SerialName("created_by") val createdBy: String, @SerialName("created_at") val createdAt: String? = null)
+@Serializable data class OpsDto(val id: Long, @SerialName("company_id") val companyId: String, val category: String, val body: String,
+    @SerialName("author_id") val authorId: String, @SerialName("created_at") val createdAt: String? = null)

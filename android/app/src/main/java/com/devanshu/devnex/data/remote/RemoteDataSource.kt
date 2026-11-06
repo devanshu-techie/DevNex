@@ -67,4 +67,35 @@ interface RemoteDataSource {
     // platform console
     suspend fun platformOverview(): List<CompanyOverview>
     suspend fun platformSetStatus(companyId: String, status: String)
+
+    // v2 — account
+    suspend fun resetPassword(email: String)
+    suspend fun updateName(fullName: String)
+    suspend fun updateMyMembership(companyId: String, title: String, availability: String, skills: List<String>)
+    suspend fun updateTask(taskId: String, title: String, description: String, priority: Priority, dueAt: Long?)
+    suspend fun openDirect(companyId: String, otherUserId: String): String
+
+    // v2 — administration
+    suspend fun setMemberRole(membershipId: String, roleKey: String)
+    suspend fun setMemberStatus(membershipId: String, status: String)
+    suspend fun setMemberDepartment(membershipId: String, departmentId: String?)
+    suspend fun createDepartment(companyId: String, name: String)
+    suspend fun deleteDepartment(departmentId: String)
+    suspend fun companySettings(companyId: String): CompanySettings
+    suspend fun updateCompanySettings(companyId: String, settings: CompanySettings)
+    suspend fun auditLog(companyId: String): List<AuditEntry>
+    suspend fun invitations(companyId: String): List<Invitation>
+    suspend fun revokeInvitation(id: String)
+
+    // v2 — modules
+    suspend fun slots(companyId: String): List<PublishingSlot>
+    suspend fun createSlot(companyId: String, title: String, platform: String, ownerId: String?, scheduledAt: Long, caption: String)
+    suspend fun setSlotStatus(slotId: String, status: String)
+    suspend fun publishSlot(slotId: String, url: String)
+    suspend fun ideas(companyId: String): List<Idea>
+    suspend fun createIdea(companyId: String, title: String, description: String, impact: String, ownerId: String?, reviewDate: Long?)
+    suspend fun setIdeaStatus(ideaId: String, status: String)
+    suspend fun convertIdea(ideaId: String): String
+    suspend fun opsLog(companyId: String): List<OpsEntry>
+    suspend fun addOps(companyId: String, category: String, body: String)
 }

@@ -61,4 +61,6 @@ abstract class RepositoryModule {
     @Binds abstract fun notifications(impl: NotificationRepositoryImpl): NotificationRepository
     @Binds abstract fun coverage(impl: CoverageRepositoryImpl): CoverageRepository
     @Binds abstract fun platform(impl: PlatformRepositoryImpl): PlatformRepository
+    @Binds abstract fun modules(impl: ModulesRepositoryImpl): ModulesRepository
+    @Binds abstract fun admin(impl: AdminRepositoryImpl): AdminRepository
 }

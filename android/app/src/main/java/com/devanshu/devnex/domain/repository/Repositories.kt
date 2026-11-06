@@ -17,6 +17,8 @@ interface AuthRepository {
     suspend fun signUp(email: String, password: String, fullName: String): SessionUser
     suspend fun verifyMfa(code: String)
     suspend fun signOut()
+    suspend fun resetPassword(email: String)
+    suspend fun updateName(fullName: String)
 }
 
 interface WorkspaceRepository {
@@ -51,6 +53,7 @@ interface TaskRepository {
     /** Scoped realtime for the active company; emits after the local cache has been refreshed. */
     fun live(companyId: String): Flow<String>
     fun pendingSyncCount(): Flow<Int>
+    suspend fun edit(task: Task, title: String, description: String, priority: Priority, dueAt: Long?)
 }
 
 interface TeamRepository {
@@ -65,6 +68,8 @@ interface ChatRepository {
     suspend fun loadMessages(channelId: String, olderThan: Long? = null)
     suspend fun send(companyId: String, channelId: String, body: String)
     fun live(companyId: String, channelId: String): Flow<Unit>
+    /** Opens (or reuses) a private 1:1 conversation; returns its channel id. */
+    suspend fun openDirect(companyId: String, otherUserId: String): String
 }
 
 interface NotificationRepository {
@@ -84,4 +89,33 @@ interface CoverageRepository {
 interface PlatformRepository {
     suspend fun overview(): List<CompanyOverview>
     suspend fun setStatus(companyId: String, status: String)
+}
+
+/** Optional modules: publishing calendar, ideas board, operations log. */
+interface ModulesRepository {
+    suspend fun slots(companyId: String): List<PublishingSlot>
+    suspend fun createSlot(companyId: String, title: String, platform: String, ownerId: String?, scheduledAt: Long, caption: String)
+    suspend fun setSlotStatus(slotId: String, status: String)
+    suspend fun publishSlot(slotId: String, url: String)
+    suspend fun ideas(companyId: String): List<Idea>
+    suspend fun createIdea(companyId: String, title: String, description: String, impact: String, ownerId: String?, reviewDate: Long?)
+    suspend fun setIdeaStatus(ideaId: String, status: String)
+    suspend fun convertIdea(ideaId: String): String
+    suspend fun opsLog(companyId: String): List<OpsEntry>
+    suspend fun addOps(companyId: String, category: String, body: String)
+}
+
+/** Company administration: members, departments, settings, audit, invitations, own profile. */
+interface AdminRepository {
+    suspend fun setMemberRole(membershipId: String, roleKey: String)
+    suspend fun setMemberStatus(membershipId: String, status: String)
+    suspend fun setMemberDepartment(membershipId: String, departmentId: String?)
+    suspend fun createDepartment(companyId: String, name: String)
+    suspend fun deleteDepartment(departmentId: String)
+    suspend fun settings(companyId: String): CompanySettings
+    suspend fun updateSettings(companyId: String, settings: CompanySettings)
+    suspend fun audit(companyId: String): List<AuditEntry>
+    suspend fun invitations(companyId: String): List<Invitation>
+    suspend fun revokeInvitation(id: String)
+    suspend fun updateMyProfile(companyId: String, title: String, availability: String, skills: List<String>)
 }

@@ -14,9 +14,10 @@ trap 'run "$PGBIN/pg_ctl -D $DATA -m fast stop >/dev/null"' EXIT
 PSQL="psql -h /tmp -p $PORT -U postgres -v ON_ERROR_STOP=1 -q"
 $PSQL -c "create database devnex" >/dev/null
 $PSQL -d devnex -f "$HERE/00_local_supabase_stub.sql" >/dev/null
-$PSQL -d devnex -f "$HERE/../supabase/migrations/0001_devnex_foundation.sql" >/dev/null
+for m in "$HERE"/../supabase/migrations/*.sql; do $PSQL -d devnex -f "$m" >/dev/null; done
 echo "== migration applied =="
 $PSQL -d devnex -f "$HERE/10_rls_tests.sql" 2>&1 | sed 's/^psql:[^ ]* NOTICE:  //'
+$PSQL -d devnex -f "$HERE/20_modules_tests.sql" 2>&1 | sed 's/^psql:[^ ]* NOTICE:  //'
 
 echo "== concurrent claim race (two real sessions) =="
 TASK=$($PSQL -d devnex -At \

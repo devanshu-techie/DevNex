@@ -36,6 +36,11 @@ class AuthRepositoryImpl @Inject constructor(
         withContext(Dispatchers.IO) { db.clearAllTables() }   // nothing from the previous account stays on the device
         _session.value = null
     }
+    override suspend fun resetPassword(email: String) = remote.resetPassword(email)
+    override suspend fun updateName(fullName: String) {
+        remote.updateName(fullName)
+        _session.value = _session.value?.copy(fullName = fullName.trim())
+    }
 }
 
 @Singleton
@@ -179,6 +184,10 @@ class TaskRepositoryImpl @Inject constructor(
 
     override fun pendingSyncCount(): Flow<Int> = db.outbox().pendingCount()
 
+    override suspend fun edit(task: Task, title: String, description: String, priority: Priority, dueAt: Long?) {
+        try { remote.updateTask(task.id, title, description, priority, dueAt) } finally { reload(task.id, task.companyId) }
+    }
+
     /** S = 0.40K + 0.25C + 0.20D + 0.15T — a recommendation; the manager decides. */
     override fun suggestAssignees(task: Task, members: List<Member>, allTasks: List<Task>): List<AssigneeSuggestion> {
         val words = (task.title + " " + (task.eligibleSkill ?: "")).lowercase()
@@ -240,6 +249,12 @@ class ChatRepositoryImpl @Inject constructor(
             }
     }
 
+    override suspend fun openDirect(companyId: String, otherUserId: String): String {
+        val id = remote.openDirect(companyId, otherUserId)
+        runCatching { refreshChannels(companyId) }
+        return id
+    }
+
     override fun live(companyId: String, channelId: String): Flow<Unit> =
         remote.changes(companyId, channelId).filter { it == "messages:$channelId" }
             .map { runCatching { loadMessages(channelId) }; Unit }
@@ -274,4 +289,36 @@ class CoverageRepositoryImpl @Inject constructor(private val remote: RemoteDataS
 class PlatformRepositoryImpl @Inject constructor(private val remote: RemoteDataSource) : PlatformRepository {
     override suspend fun overview() = remote.platformOverview()
     override suspend fun setStatus(companyId: String, status: String) = remote.platformSetStatus(companyId, status)
+}
+
+@Singleton
+class ModulesRepositoryImpl @Inject constructor(private val remote: RemoteDataSource) : ModulesRepository {
+    override suspend fun slots(companyId: String) = remote.slots(companyId)
+    override suspend fun createSlot(companyId: String, title: String, platform: String, ownerId: String?, scheduledAt: Long, caption: String) =
+        remote.createSlot(companyId, title, platform, ownerId, scheduledAt, caption)
+    override suspend fun setSlotStatus(slotId: String, status: String) = remote.setSlotStatus(slotId, status)
+    override suspend fun publishSlot(slotId: String, url: String) = remote.publishSlot(slotId, url)
+    override suspend fun ideas(companyId: String) = remote.ideas(companyId)
+    override suspend fun createIdea(companyId: String, title: String, description: String, impact: String, ownerId: String?, reviewDate: Long?) =
+        remote.createIdea(companyId, title, description, impact, ownerId, reviewDate)
+    override suspend fun setIdeaStatus(ideaId: String, status: String) = remote.setIdeaStatus(ideaId, status)
+    override suspend fun convertIdea(ideaId: String) = remote.convertIdea(ideaId)
+    override suspend fun opsLog(companyId: String) = remote.opsLog(companyId)
+    override suspend fun addOps(companyId: String, category: String, body: String) = remote.addOps(companyId, category, body)
+}
+
+@Singleton
+class AdminRepositoryImpl @Inject constructor(private val remote: RemoteDataSource) : AdminRepository {
+    override suspend fun setMemberRole(membershipId: String, roleKey: String) = remote.setMemberRole(membershipId, roleKey)
+    override suspend fun setMemberStatus(membershipId: String, status: String) = remote.setMemberStatus(membershipId, status)
+    override suspend fun setMemberDepartment(membershipId: String, departmentId: String?) = remote.setMemberDepartment(membershipId, departmentId)
+    override suspend fun createDepartment(companyId: String, name: String) = remote.createDepartment(companyId, name)
+    override suspend fun deleteDepartment(departmentId: String) = remote.deleteDepartment(departmentId)
+    override suspend fun settings(companyId: String) = remote.companySettings(companyId)
+    override suspend fun updateSettings(companyId: String, settings: CompanySettings) = remote.updateCompanySettings(companyId, settings)
+    override suspend fun audit(companyId: String) = remote.auditLog(companyId)
+    override suspend fun invitations(companyId: String) = remote.invitations(companyId)
+    override suspend fun revokeInvitation(id: String) = remote.revokeInvitation(id)
+    override suspend fun updateMyProfile(companyId: String, title: String, availability: String, skills: List<String>) =
+        remote.updateMyMembership(companyId, title, availability, skills)
 }

@@ -41,9 +41,16 @@ class DemoRemoteDataSource : RemoteDataSource {
     private data class Mem(val id: String, val companyId: String, val userId: String, var roleKey: String,
                            var departmentId: String?, var title: String, var skills: List<String>,
                            var availability: String = "available")
-    private data class Ch(val id: String, val companyId: String, val name: String, val kind: String)
+    private data class Ch(val id: String, val companyId: String, val name: String, val kind: String, val members: Set<String> = emptySet())
     private data class Inv(val token: String, val companyId: String, val email: String, val roleKey: String,
-                           val departmentId: String?, var used: Boolean = false)
+                           val departmentId: String?, var used: Boolean = false,
+                           val id: String = UUID.randomUUID().toString(),
+                           val expiresAt: Long = System.currentTimeMillis() + 7 * 86_400_000L, var revoked: Boolean = false)
+    private data class Slot(val id: String, val companyId: String, var title: String, var platform: String, var ownerId: String?,
+                            var scheduledAt: Long, var status: String, var caption: String, var url: String? = null,
+                            var publishedAt: Long? = null, var views: Int? = null, var engagement: Int? = null)
+    private data class IdeaRec(val id: String, val companyId: String, val title: String, val description: String, val impact: String,
+                               var status: String, val ownerId: String?, val reviewDate: Long?, var taskId: String?, val by: String, val at: Long)
 
     private val users = mutableListOf<U>()
     private val companies = mutableListOf<Co>()
@@ -59,6 +66,12 @@ class DemoRemoteDataSource : RemoteDataSource {
     private val events = mutableListOf<CoverageEvent>()
     private val submissionsList = mutableListOf<CoverageSubmission>()
     private val invitations = mutableListOf<Inv>()
+    private val slotsList = mutableListOf<Slot>()
+    private val ideasList = mutableListOf<IdeaRec>()
+    private val opsList = mutableListOf<OpsEntry>()
+    private val auditList = mutableListOf<AuditEntry>()
+    private val settingsMap = mutableMapOf<String, CompanySettings>()
+    private val auditTag = mutableMapOf<String, String>()
 
     private var me: U? = null
     private var mfaPassed = false
@@ -83,7 +96,7 @@ class DemoRemoteDataSource : RemoteDataSource {
     private fun h(n: Double) = (n * 3_600_000).toLong()
     private fun uuid() = UUID.randomUUID().toString()
 
-    init { seed() }
+    init { seed(); seedV2() }
 
     // ---------------------------------------------------------------- helpers (call inside lock)
     private fun uid(): String = me?.id ?: throw DomainException("Please sign in")
@@ -110,6 +123,7 @@ class DemoRemoteDataSource : RemoteDataSource {
     }
     private fun log(t: Task, action: String, detail: String = "") {
         activity += TaskActivity(uuid(), t.id, nameOf(me?.id), action, detail, now())
+        audit(t.companyId, "task.$action", "task", "${t.title}${if (detail.isNotBlank()) " · $detail" else ""}")
     }
     private fun notify(cid: String, userId: String?, kind: String, title: String, body: String, taskId: String?) {
         if (userId == null || userId == me?.id) return
@@ -200,7 +214,7 @@ class DemoRemoteDataSource : RemoteDataSource {
 
     override suspend fun acceptInvitation(token: String): String = lock.withLock {
         delay(400)
-        val inv = invitations.firstOrNull { it.token.equals(token.trim(), true) && !it.used }
+        val inv = invitations.firstOrNull { it.token.equals(token.trim(), true) && !it.used && !it.revoked && it.expiresAt > now() }
             ?: throw DomainException("Invalid or already used invitation code")
         val email = me?.email ?: throw DomainException("Please sign in")
         if (!inv.email.equals(email, true)) throw DomainException("This invitation was sent to a different email")
@@ -408,15 +422,16 @@ class DemoRemoteDataSource : RemoteDataSource {
     // ---------------------------------------------------------------- chat
     override suspend fun channels(companyId: String): List<Channel> = lock.withLock {
         if (!isMember(companyId)) return@withLock emptyList()
-        channels.filter { it.companyId == companyId }.map { c ->
+        channels.filter { it.companyId == companyId && (it.members.isEmpty() || uid() in it.members) }.map { c ->
             val last = messagesList.filter { it.channelId == c.id }.maxByOrNull { it.at }
-            Channel(c.id, companyId, c.name, c.kind, 0, last?.let { "${it.senderName.substringBefore(' ')}: ${it.body}" }, last?.at)
+            val title = if (c.kind == "dm") nameOf(c.members.firstOrNull { it != uid() }) else c.name
+            Channel(c.id, companyId, title, c.kind, 0, last?.let { "${it.senderName.substringBefore(' ')}: ${it.body}" }, last?.at)
         }.sortedByDescending { it.lastAt ?: 0 }
     }
 
     override suspend fun messages(channelId: String, olderThan: Long?, limit: Int): List<Message> = lock.withLock {
         val c = channels.firstOrNull { it.id == channelId } ?: return@withLock emptyList()
-        if (!isMember(c.companyId)) return@withLock emptyList()
+        if (!isMember(c.companyId) || (c.members.isNotEmpty() && uid() !in c.members)) return@withLock emptyList()
         messagesList.filter { it.channelId == channelId && (olderThan == null || it.at < olderThan) }
             .sortedByDescending { it.at }.take(limit)
     }
@@ -424,7 +439,7 @@ class DemoRemoteDataSource : RemoteDataSource {
     override suspend fun sendMessage(id: String, companyId: String, channelId: String, body: String) {
         lock.withLock {
             val c = channels.firstOrNull { it.id == channelId && it.companyId == companyId } ?: throw DomainException("Channel not found")
-            if (!isMember(companyId)) throw DomainException("Not a member")
+            if (!isMember(companyId) || (c.members.isNotEmpty() && uid() !in c.members)) throw DomainException("Not a member")
             if (c.kind == "announcement" && !can(companyId, Perm.CHAT_ANNOUNCE)) throw DomainException("Only admins can post announcements")
             if (messagesList.any { it.id == id }) return@withLock // idempotent retry
             messagesList += Message(id, companyId, channelId, uid(), nameOf(uid()), body.trim(), now())
@@ -435,7 +450,9 @@ class DemoRemoteDataSource : RemoteDataSource {
         if (count % 2 == 1) scope.launch {
             delay(2200)
             lock.withLock {
-                val other = members.filter { it.companyId == companyId && it.userId != me?.id }.randomOrNull() ?: return@withLock
+                val ch = channels.firstOrNull { it.id == channelId }
+                val other = (if (ch != null && ch.members.isNotEmpty()) members.filter { it.companyId == companyId && it.userId in ch.members && it.userId != me?.id }
+                             else members.filter { it.companyId == companyId && it.userId != me?.id }).randomOrNull() ?: return@withLock
                 val replies = listOf("On it.", "Thanks, noted.", "Can we sync on this after lunch?", "Great — I'll update the task.", "Seen. Will share by EOD.")
                 messagesList += Message(uuid(), companyId, channelId, other.userId, nameOf(other.userId), replies.random(), now())
             }
@@ -614,5 +631,273 @@ class DemoRemoteDataSource : RemoteDataSource {
             "National record", listOf("drive.google.com/…/400m-final"), true, mapOf('F' to 5, 'I' to 5, 'U' to 5, 'A' to 4, 'R' to 5, 'V' to 5), "high_priority", now() - h(2.0))
         submissionsList += CoverageSubmission("s2", ev.id, "Kabir Shah", "Relay team", "4x100m — silver", "", "Comeback after injury",
             emptyList(), false, mapOf('F' to 4, 'I' to 3, 'U' to 3, 'A' to 1, 'R' to 3, 'V' to 2), "waiting_info", now() - h(1.0))
+    }
+
+    // ================================================================ v2
+    private fun audit(cid: String, action: String, entity: String, detail: String) {
+        auditList += AuditEntry(uuid(), nameOf(me?.id), action, entity, detail, now())
+        auditTag[auditList.last().id] = cid
+    }
+    private fun requireCan(cid: String, perm: String, msg: String) { if (!can(cid, perm)) throw DomainException(msg) }
+    private fun requireModule(cid: String, mod: String) {
+        if (companies.firstOrNull { it.id == cid }?.modules?.contains(mod) != true) throw DomainException("This module is switched off for your company")
+    }
+
+    override suspend fun resetPassword(email: String) {
+        delay(400)
+        if (!email.contains('@')) throw DomainException("Enter a valid email")
+    }
+
+    override suspend fun updateName(fullName: String) {
+        lock.withLock {
+            if (fullName.isBlank()) throw DomainException("Name can't be empty")
+            val i = users.indexOfFirst { it.id == uid() }
+            users[i] = users[i].copy(name = fullName.trim()); me = users[i]
+            Unit
+        }
+    }
+
+    override suspend fun updateMyMembership(companyId: String, title: String, availability: String, skills: List<String>) {
+        lock.withLock {
+            val m = membership(companyId) ?: throw DomainException("Not a member")
+            m.title = title.trim(); m.availability = availability; m.skills = skills.map { it.trim() }.filter { it.isNotBlank() }
+            Unit
+        }
+    }
+
+    override suspend fun updateTask(taskId: String, title: String, description: String, priority: Priority, dueAt: Long?) {
+        lock.withLock {
+            val t = tasks[taskIndex(taskId)]
+            if (!can(t.companyId, Perm.TASK_EDIT) && t.createdBy != uid()) throw DomainException("Only managers or the creator can edit this task")
+            if (title.isBlank()) throw DomainException("Title can't be empty")
+            val n = bump(t) { it.copy(title = title.trim(), description = description.trim(), priority = priority, dueAt = dueAt) }
+            log(n, "edited")
+            Unit
+        }
+    }
+
+    override suspend fun openDirect(companyId: String, otherUserId: String): String = lock.withLock {
+        if (!isMember(companyId)) throw DomainException("Not a member")
+        if (otherUserId == uid()) throw DomainException("Pick someone else")
+        if (membership(companyId, otherUserId) == null) throw DomainException("That person isn't in this company")
+        val pair = setOf(uid(), otherUserId)
+        channels.firstOrNull { it.companyId == companyId && it.kind == "dm" && it.members == pair }?.id
+            ?: Ch(uuid(), companyId, "dm", "dm", pair).also { channels += it }.id
+    }
+
+    override suspend fun setMemberRole(membershipId: String, roleKey: String) {
+        lock.withLock {
+            val m = members.firstOrNull { it.id == membershipId } ?: throw DomainException("Member not found")
+            requireCan(m.companyId, Perm.MEMBER_MANAGE, "Only admins can change roles")
+            if (m.userId == uid()) throw DomainException("You cannot change your own role")
+            val mine = rank(m.companyId)
+            if ((role(roleKey).rank >= mine || role(m.roleKey).rank >= mine) && mine < 100)
+                throw DomainException("You can only manage people below your own role")
+            m.roleKey = roleKey
+            audit(m.companyId, "member.role", "member", "${nameOf(m.userId)} → ${role(roleKey).name}")
+            Unit
+        }
+    }
+
+    override suspend fun setMemberStatus(membershipId: String, status: String) {
+        lock.withLock {
+            val m = members.firstOrNull { it.id == membershipId } ?: throw DomainException("Member not found")
+            requireCan(m.companyId, Perm.MEMBER_MANAGE, "Only admins can deactivate members")
+            if (m.userId == uid()) throw DomainException("You cannot deactivate yourself")
+            if (role(m.roleKey).rank >= rank(m.companyId)) throw DomainException("You can only manage people below your own role")
+            if (status == "removed" || status == "suspended") members.remove(m)
+            audit(m.companyId, "member.$status", "member", nameOf(m.userId))
+            Unit
+        }
+    }
+
+    override suspend fun setMemberDepartment(membershipId: String, departmentId: String?) {
+        lock.withLock {
+            val m = members.firstOrNull { it.id == membershipId } ?: throw DomainException("Member not found")
+            requireCan(m.companyId, Perm.MEMBER_MANAGE, "Only admins can move people between departments")
+            m.departmentId = departmentId
+            audit(m.companyId, "member.department", "member", "${nameOf(m.userId)} → ${departments.firstOrNull { it.id == departmentId }?.name ?: "none"}")
+            Unit
+        }
+    }
+
+    override suspend fun createDepartment(companyId: String, name: String) {
+        lock.withLock {
+            requireCan(companyId, Perm.DEPARTMENT_MANAGE, "Only admins can create departments")
+            if (name.isBlank()) throw DomainException("Give the department a name")
+            if (departments.any { it.companyId == companyId && it.name.equals(name.trim(), true) }) throw DomainException("That department already exists")
+            departments += Department(uuid(), companyId, name.trim())
+            audit(companyId, "department.create", "department", name.trim())
+            Unit
+        }
+    }
+
+    override suspend fun deleteDepartment(departmentId: String) {
+        lock.withLock {
+            val d = departments.firstOrNull { it.id == departmentId } ?: return@withLock
+            requireCan(d.companyId, Perm.DEPARTMENT_MANAGE, "Only admins can delete departments")
+            departments.remove(d)
+            members.filter { it.departmentId == departmentId }.forEach { it.departmentId = null }
+            audit(d.companyId, "department.delete", "department", d.name)
+            Unit
+        }
+    }
+
+    override suspend fun companySettings(companyId: String): CompanySettings = lock.withLock {
+        val c = companies.first { it.id == companyId }
+        settingsMap[companyId] ?: CompanySettings(c.name, String.format("#%06X", c.color and 0xFFFFFF), "department", 90)
+    }
+
+    override suspend fun updateCompanySettings(companyId: String, settings: CompanySettings) {
+        lock.withLock {
+            requireCan(companyId, Perm.COMPANY_MANAGE, "Only the owner or admins can change company settings")
+            if (!Regex("^#[0-9A-Fa-f]{6}$").matches(settings.brandColor)) throw DomainException("Brand colour must look like #1D4ED8")
+            if (settings.name.trim().length < 2) throw DomainException("Company name is too short")
+            val c = companies.first { it.id == companyId }
+            c.name = settings.name.trim()
+            settingsMap[companyId] = settings.copy(name = c.name)
+            audit(companyId, "company.settings", "company", "visibility ${settings.memberVisibility}, MFA from rank ${settings.mfaRequiredRank}")
+            Unit
+        }
+    }
+
+    override suspend fun auditLog(companyId: String): List<AuditEntry> = lock.withLock {
+        requireCan(companyId, Perm.AUDIT_VIEW, "Only admins can read the audit log")
+        auditList.filter { auditTag[it.id] == companyId }.sortedByDescending { it.at }
+    }
+
+    override suspend fun invitations(companyId: String): List<Invitation> = lock.withLock {
+        if (!can(companyId, Perm.MEMBER_INVITE)) return@withLock emptyList()
+        invitations.filter { it.companyId == companyId }.map {
+            Invitation(it.id, it.email, it.roleKey,
+                when { it.used -> "accepted"; it.revoked -> "revoked"; it.expiresAt < now() -> "expired"; else -> "pending" }, it.expiresAt)
+        }.reversed()
+    }
+
+    override suspend fun revokeInvitation(id: String) {
+        lock.withLock {
+            val inv = invitations.firstOrNull { it.id == id } ?: return@withLock
+            requireCan(inv.companyId, Perm.MEMBER_INVITE, "Not allowed")
+            inv.revoked = true
+            audit(inv.companyId, "invitation.revoke", "invitation", inv.email)
+            Unit
+        }
+    }
+
+    // ---------------------------------------------------------------- publishing
+    override suspend fun slots(companyId: String): List<PublishingSlot> = lock.withLock {
+        if (!isMember(companyId) || companies.first { it.id == companyId }.modules.contains(Modules.PUBLISHING).not()) return@withLock emptyList()
+        slotsList.filter { it.companyId == companyId }.sortedBy { it.scheduledAt }.map {
+            PublishingSlot(it.id, it.companyId, it.title, it.platform, null, it.ownerId, it.ownerId?.let { o -> nameOf(o) },
+                it.scheduledAt, it.status, it.caption, it.url, it.publishedAt, it.views, it.engagement)
+        }
+    }
+
+    override suspend fun createSlot(companyId: String, title: String, platform: String, ownerId: String?, scheduledAt: Long, caption: String) {
+        lock.withLock {
+            if (!isMember(companyId)) throw DomainException("Not a member")
+            requireModule(companyId, Modules.PUBLISHING)
+            if (title.isBlank()) throw DomainException("What is being published?")
+            slotsList += Slot(uuid(), companyId, title.trim(), platform, ownerId ?: uid(), scheduledAt, "scheduled", caption.trim())
+            audit(companyId, "publishing.schedule", "slot", "${title.trim()} · ${Platforms.label(platform)}")
+            Unit
+        }
+    }
+
+    override suspend fun setSlotStatus(slotId: String, status: String) {
+        lock.withLock {
+            val sl = slotsList.firstOrNull { it.id == slotId } ?: throw DomainException("Slot not found")
+            if (sl.ownerId != uid() && !can(sl.companyId, Perm.TASK_ASSIGN)) throw DomainException("Only the owner or a manager can change this slot")
+            sl.status = status
+            Unit
+        }
+    }
+
+    override suspend fun publishSlot(slotId: String, url: String) {
+        lock.withLock {
+            val sl = slotsList.firstOrNull { it.id == slotId } ?: throw DomainException("Slot not found")
+            if (sl.ownerId != uid() && !can(sl.companyId, Perm.TASK_ASSIGN)) throw DomainException("Only the owner or a manager can publish this")
+            if (!Regex("^https?://\\S+$").matches(url.trim())) throw DomainException("Add the published link (https://…)")
+            sl.status = "published"; sl.url = url.trim(); sl.publishedAt = now()
+            audit(sl.companyId, "publishing.published", "slot", "${sl.title} · ${url.trim()}")
+            Unit
+        }
+    }
+
+    // ---------------------------------------------------------------- ideas
+    override suspend fun ideas(companyId: String): List<Idea> = lock.withLock {
+        if (!isMember(companyId) || companies.first { it.id == companyId }.modules.contains(Modules.IDEAS).not()) return@withLock emptyList()
+        ideasList.filter { it.companyId == companyId }.sortedByDescending { it.at }.map {
+            Idea(it.id, it.companyId, it.title, it.description, it.impact, it.status, it.ownerId, it.ownerId?.let { o -> nameOf(o) },
+                it.reviewDate, it.taskId, it.by, nameOf(it.by), it.at)
+        }
+    }
+
+    override suspend fun createIdea(companyId: String, title: String, description: String, impact: String, ownerId: String?, reviewDate: Long?) {
+        lock.withLock {
+            if (!isMember(companyId)) throw DomainException("Not a member")
+            requireModule(companyId, Modules.IDEAS)
+            if (title.isBlank()) throw DomainException("Give the idea a title")
+            ideasList += IdeaRec(uuid(), companyId, title.trim(), description.trim(), impact, "new", ownerId, reviewDate, null, uid(), now())
+            Unit
+        }
+    }
+
+    override suspend fun setIdeaStatus(ideaId: String, status: String) {
+        lock.withLock {
+            val i = ideasList.firstOrNull { it.id == ideaId } ?: throw DomainException("Idea not found")
+            requireCan(i.companyId, Perm.TASK_ASSIGN, "Only managers decide on ideas")
+            i.status = status
+            audit(i.companyId, "idea.status", "idea", "${i.title} → $status")
+            Unit
+        }
+    }
+
+    override suspend fun convertIdea(ideaId: String): String {
+        val i = lock.withLock { ideasList.firstOrNull { it.id == ideaId } ?: throw DomainException("Idea not found") }
+        i.taskId?.let { return it }
+        val t = createTask(TaskDraft(i.companyId, i.title, i.description,
+            when (i.impact) { "high" -> Priority.HIGH; "low" -> Priority.LOW; else -> Priority.NORMAL }, null, i.ownerId, false, null))
+        lock.withLock { i.status = "converted"; i.taskId = t.id }
+        return t.id
+    }
+
+    // ---------------------------------------------------------------- operations log
+    override suspend fun opsLog(companyId: String): List<OpsEntry> = lock.withLock {
+        if (!isMember(companyId) || companies.first { it.id == companyId }.modules.contains(Modules.OPS_LOG).not()) return@withLock emptyList()
+        opsList.filter { it.companyId == companyId }.sortedByDescending { it.at }
+    }
+
+    override suspend fun addOps(companyId: String, category: String, body: String) {
+        lock.withLock {
+            if (!isMember(companyId)) throw DomainException("Not a member")
+            requireModule(companyId, Modules.OPS_LOG)
+            if (body.isBlank()) throw DomainException("Write what happened")
+            opsList += OpsEntry(uuid(), companyId, category, body.trim(), nameOf(uid()), now())
+            Unit
+        }
+    }
+
+    private fun seedV2() {
+        val n = "c-news"
+        slotsList += Slot("sl1", n, "Athlete interview — 400m record", "instagram", "u-zoya", now() + h(3.0), "scheduled", "National record! Full interview tonight. #Athletics")
+        slotsList += Slot("sl2", n, "Championship day report", "website", "u-rohan", now() + h(6.0), "draft", "")
+        slotsList += Slot("sl3", n, "Event highlights", "youtube", "u-neha", now() + h(26.0), "scheduled", "Best moments from day 1")
+        slotsList += Slot("sl4", n, "Junior nationals recap", "facebook", "u-zoya", now() - h(30.0), "published", "Recap of junior nationals",
+            "https://facebook.com/velocity/posts/1", now() - h(30.0), 18400, 1260)
+        ideasList += IdeaRec("i1", n, "Weekly coach roundtable podcast", "Four coaches, one topic, 30 minutes. Sponsor-friendly.", "high", "reviewing", "u-priya", now() + h(24.0 * 4), null, "u-kabir", now() - h(48.0))
+        ideasList += IdeaRec("i2", n, "Athlete profile series for Instagram", "Ten-part carousel series on rising athletes.", "medium", "new", "u-zoya", null, null, "u-zoya", now() - h(20.0))
+        ideasList += IdeaRec("i3", n, "Live results widget on the website", "Auto-updating results table during big meets.", "high", "approved", "u-rohan", now() + h(24.0 * 10), null, "u-arjun", now() - h(90.0))
+        opsList += OpsEntry("o1", n, "delay", "Highlights package delayed by 2 hours: camera B footage arrived late.", "Neha Iyer", now() - h(5.0))
+        opsList += OpsEntry("o2", n, "decision", "Relay story moved to tomorrow's newsletter; today's focus is the 400m record.", "Priya Nair", now() - h(3.0))
+        opsList += OpsEntry("o3", n, "handover", "Evening desk: website story is in review, reels waiting for video. Zoya has the 9 pm slot.", "Arjun Mehta", now() - h(1.0))
+        listOf(
+            Triple("member.role", "member", "Arjun Mehta → Team Lead"), Triple("department.create", "department", "Website"),
+            Triple("invitation.create", "invitation", "rohan@devnex.app"), Triple("task.claimed", "task", "Event coverage — results & interviews"),
+        ).forEachIndexed { i, (a, e, d) ->
+            auditList += AuditEntry("au$i", if (i == 3) "Kabir Shah" else "Devanshu", a, e, d, now() - h(24.0 * (4 - i)))
+            auditTag["au$i"] = n
+        }
+        invitations += Inv("VELO7X2K9Q", n, "new.reporter@devnex.app", "member", null)
     }
 }

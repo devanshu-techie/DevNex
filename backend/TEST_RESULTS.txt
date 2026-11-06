@@ -39,7 +39,22 @@ ok  - support grant does not leak Beta
 ok  - suspended company loses data access
 ok  - switcher shows the company as suspended
 ALL TESTS PASSED
+ok  - publishing needs a real link
+ok  - owner records publication
+ok  - Beta cannot see Alpha publishing calendar
+ok  - members cannot approve ideas
+ok  - idea converts into a high-priority task
+ok  - idea marked converted
+ok  - operations log is append-only
+ok  - members read the operations log
+ok  - opening a DM twice reuses it
+ok  - third colleague cannot read a DM
+ok  - DM partner can read it
+ok  - members cannot change company settings
+ok  - owner updates branding
+ok  - disabled module rejects writes
+MODULE TESTS PASSED
 == concurrent claim race (two real sessions) ==
-Ravi: CLAIM_FAILED   Meera: CLAIM_SUCCESS
+Ravi: CLAIM_SUCCESS   Meera: CLAIM_FAILED
 ok  - exactly one winner, one claim row
 == ALL CHECKS PASSED ==
