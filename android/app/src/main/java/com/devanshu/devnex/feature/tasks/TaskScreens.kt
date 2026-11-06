@@ -423,7 +423,8 @@ private fun Pipeline(t: Task, modifier: Modifier) {
         Spacer(Modifier.height(8.dp))
         Row {
             steps.forEach { s ->
-                Text(s.label.substringBefore(' '), Modifier.weight(1f), style = MaterialTheme.typography.labelSmall,
+                Text(when (s) { TaskStatus.OPEN -> "Open"; TaskStatus.ASSIGNED -> "Assigned"; TaskStatus.IN_PROGRESS -> "Working"
+                    TaskStatus.SUBMITTED -> "Review"; TaskStatus.APPROVED -> "Approved"; else -> "Published" }, Modifier.weight(1f), style = MaterialTheme.typography.labelSmall,
                     color = if (s == t.status) s.color() else LocalNx.current.mute, maxLines = 1)
             }
         }
