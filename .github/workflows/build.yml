@@ -1,0 +1,58 @@
+name: Build & test DevNex
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to publish the APK as a release asset
+
+jobs:
+  database:
+    name: Database security tests (PostgreSQL 16)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run RLS suite + concurrent claim race
+        run: |
+          export PGBIN=/usr/lib/postgresql/16/bin
+          ./backend/tests/run_tests.sh "$RUNNER_TEMP" | tee db-results.txt
+          grep -q "ALL CHECKS PASSED" db-results.txt
+
+  android:
+    name: Android build, unit tests, APK
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build debug APK and run unit tests
+        working-directory: android
+        run: ./gradlew --no-daemon assembleDebug testDebugUnitTest
+      - name: Rename APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk DevNex-${{ github.run_number }}-demo.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DevNex-apk
+          path: DevNex-*.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports
+          path: android/app/build/reports/
+      - name: Publish APK as a release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: DevNex build ${{ github.run_number }}
+          prerelease: true
+          files: DevNex-*.apk
+          body: |
+            Debug APK built from ${{ github.sha }}. Runs in Demo mode (sample data, password `devnex123`).
+            Install: open this page on your Android phone, download the APK, allow "Install unknown apps" when asked.
