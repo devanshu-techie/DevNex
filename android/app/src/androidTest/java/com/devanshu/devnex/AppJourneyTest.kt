@@ -157,7 +157,12 @@ class AppJourneyTest {
         step("owner_home") { clickText("Devanshu · Platform owner + Company owner"); mfaAndPickWorkspace(); waitText("Devanshu") }
         step("members") { moreRow("Members"); waitText("Search people") }
         step("departments") { back(); moreRow("Departments"); waitText("Reporting") }
-        step("company_settings") { back(); moreRow("Company settings"); waitText("Save settings") }
+        step("company_settings") { back(); moreRow("Company settings"); waitText("Branding") }
+        step("company_settings_saved") {
+            rule.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("Save settings"))
+            rule.onNode(hasText("Save settings") and hasClickAction()).performClick()
+            waitText("Company settings saved")
+        }
         step("audit_log") { back(); moreRow("Audit log"); waitText("Search by person, action or item") }
         step("invitations") { back(); moreRow("Invitations"); waitText("new.reporter@devnex.app") }
         step("invite_modules") { back(); moreRow("Invite people & modules"); waitText("Invite a member") }
