@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - name: Run RLS suite + concurrent claim race
+      - name: Run RLS suites + concurrent claim race
         run: |
           export PGBIN=/usr/lib/postgresql/16/bin
           ./backend/tests/run_tests.sh "$RUNNER_TEMP" | tee db-results.txt
@@ -43,11 +43,61 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-reports
+          name: unit-test-reports
           path: android/app/build/reports/
-      - name: Publish APK as a release
-        if: github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v2
+
+  ui-test:
+    name: Full app journey on an Android emulator
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run journey test (Pixel 6, Android 14)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          working-directory: android
+          script: |
+            adb shell mkdir -p /sdcard/Download/devnex
+            ./gradlew --no-daemon connectedDebugAndroidTest || echo failed > ../ui_failed.txt
+            adb pull /sdcard/Download/devnex ../screens || true
+            adb logcat -d -s AndroidRuntime:E > ../crash_log.txt || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: app-screens
+          path: |
+            screens/
+            crash_log.txt
+            android/app/build/reports/androidTests/
+      - name: Fail if the journey failed
+        run: test ! -f ui_failed.txt
+
+  release:
+    name: Publish APK
+    if: github.ref == 'refs/heads/main'
+    needs: [database, android, ui-test]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: DevNex-apk
+      - uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
           name: DevNex build ${{ github.run_number }}
@@ -55,4 +105,5 @@ jobs:
           files: DevNex-*.apk
           body: |
             Debug APK built from ${{ github.sha }}. Runs in Demo mode (sample data, password `devnex123`).
+            Passed: database security suites, unit tests, and the full app journey on an Android 14 emulator.
             Install: open this page on your Android phone, download the APK, allow "Install unknown apps" when asked.

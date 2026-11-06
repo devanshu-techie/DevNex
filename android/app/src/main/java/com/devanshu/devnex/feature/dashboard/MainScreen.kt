@@ -20,6 +20,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -160,6 +161,7 @@ fun MainScreen(nav: MainNav, vm: MainViewModel = hiltViewModel()) {
                     val label = if (t == Tab.DESK && !coverageOn) "Projects" else t.label
                     val icon = if (t == Tab.DESK && !coverageOn) Icons.Rounded.AccountTree else t.icon
                     NavigationBarItem(
+                        modifier = Modifier.testTag("tab_${t.name}"),
                         selected = tab == t, onClick = { tab = t },
                         icon = {
                             val unread = vm.notes.collectAsStateWithLifecycle().value.count { !it.read }
@@ -423,7 +425,7 @@ fun MoreTab(vm: MainViewModel, nav: MainNav) {
 
 @Composable
 fun MoreRow(icon: ImageVector, title: String, sub: String, onClick: () -> Unit, tint: Color = Nx.VioletSoft) {
-    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().testTag("row_$title").clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(tint.copy(alpha = .14f)), contentAlignment = Alignment.Center) {
             Icon(icon, null, tint = tint, modifier = Modifier.size(20.dp))
         }
