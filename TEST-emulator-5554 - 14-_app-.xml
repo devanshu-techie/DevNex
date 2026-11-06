@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="com.devanshu.devnex.AppJourneyTest" tests="1" failures="0" errors="0" skipped="0" time="116.478" timestamp="2026-11-06T15:51:40" hostname="localhost">
+  <properties>
+    <property name="device" value="emulator-5554 - 14" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="fullJourney" classname="com.devanshu.devnex.AppJourneyTest" time="113.09" />
+</testsuite>
