@@ -66,7 +66,20 @@ class AppJourneyTest {
         rule.waitForIdle()
     }
 
-    private fun back() { rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }; rule.waitForIdle() }
+    /** Presses back only on secondary screens, so the app's root screen is never closed. */
+    private fun back() {
+        rule.waitForIdle()
+        if (rule.onAllNodesWithTag("tab_HOME").fetchSemanticsNodes().isNotEmpty()) return
+        rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
+        rule.waitForIdle()
+    }
+
+    /** Emulator system apps (e.g. the launcher) sometimes raise ANR dialogs that block touches. */
+    private fun quietSystem() {
+        shell("settings put global hide_error_dialogs 1")
+        shell("pm disable-user --user 0 com.google.android.apps.nexuslauncher")
+        shell("am force-stop com.google.android.apps.nexuslauncher")
+    }
 
     private fun mfaAndPickWorkspace() {
         waitText("Two-step verification")
@@ -81,6 +94,7 @@ class AppJourneyTest {
     }
 
     @Test fun fullJourney() {
+        quietSystem()
         shell("mkdir -p /sdcard/Download/devnex")
         Thread.sleep(1200); shell("screencap -p /sdcard/Download/devnex/00_splash.png")
 
@@ -112,9 +126,9 @@ class AppJourneyTest {
         step("profile") { back(); moreRow("My profile"); waitText("Save profile") }
         step("calendar") { back(); moreRow("Calendar"); waitText("Everything") }
         step("search") { back(); moreRow("Search"); rule.onNode(hasSetTextAction()).performTextInput("relay"); waitText("Tasks", substring = true) }
-        step("ideas") { back(); moreRow("Ideas board"); waitText("New idea") }
+        step("ideas") { back(); moreRow("Ideas board"); waitText("Ideas board"); waitText("Weekly coach roundtable podcast") }
         step("ops_log") { back(); moreRow("Operations log"); waitText("Add to log") }
-        step("publishing") { back(); moreRow("Publishing calendar"); waitText("Schedule") }
+        step("publishing") { back(); moreRow("Publishing calendar"); waitText("Social media and website schedule") }
         step("more_member") { back(); tab("MORE"); waitText("My profile") }
         step("reporter_signout") { signOut() }
 
