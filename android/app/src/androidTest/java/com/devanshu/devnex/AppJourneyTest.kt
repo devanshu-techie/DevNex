@@ -59,7 +59,17 @@ class AppJourneyTest {
 
     private fun tab(name: String) { rule.onNodeWithTag("tab_$name").performClick(); rule.waitForIdle() }
 
+    /** Back out of secondary screens until the bottom tabs are visible again. */
+    private fun ensureMain() {
+        repeat(4) {
+            rule.waitForIdle()
+            if (rule.onAllNodesWithTag("tab_HOME").fetchSemanticsNodes().isNotEmpty()) return
+            rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
+        }
+    }
+
     private fun moreRow(title: String) {
+        ensureMain()
         tab("MORE")
         rule.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasTestTag("row_$title"))
         rule.onNodeWithTag("row_$title").performClick()
@@ -77,7 +87,6 @@ class AppJourneyTest {
     /** Emulator system apps (e.g. the launcher) sometimes raise ANR dialogs that block touches. */
     private fun quietSystem() {
         shell("settings put global hide_error_dialogs 1")
-        shell("pm disable-user --user 0 com.google.android.apps.nexuslauncher")
         shell("am force-stop com.google.android.apps.nexuslauncher")
     }
 

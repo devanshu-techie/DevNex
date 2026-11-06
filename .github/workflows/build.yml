@@ -75,7 +75,6 @@ jobs:
           script: |
             adb shell mkdir -p /sdcard/Download/devnex
             adb shell settings put global hide_error_dialogs 1
-            adb shell pm disable-user --user 0 com.google.android.apps.nexuslauncher || true
             ./gradlew --no-daemon connectedDebugAndroidTest || echo failed > ../ui_failed.txt
             adb pull /sdcard/Download/devnex ../screens || true
             adb logcat -d -s AndroidRuntime:E > ../crash_log.txt || true
